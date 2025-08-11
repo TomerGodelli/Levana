@@ -14,6 +14,7 @@
   "license": "ISC",
   "description": "",
   "type": "module",
+  "homepage": "https://your-github-username.github.io/moon/",
   "dependencies": {
     "@hebcal/core": "^5.10.1",
     "gsap": "^3.13.0",
