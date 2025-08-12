@@ -1056,6 +1056,14 @@ export default function App(){
                 type="time"
                 value={hour}
                 ref={timeInputRef}
+                onKeyDown={e=>{
+                  if (e.key === 'Enter'){
+                    e.preventDefault()
+                    if (record && !loading && !isLoading){
+                      handleSubmit()
+                    }
+                  }
+                }}
                 onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
                 disabled={isLoading}
               />
@@ -1070,6 +1078,14 @@ export default function App(){
               max="2030-01-01"
               value={date}
               ref={dateInputRef}
+              onKeyDown={e=>{
+                if (e.key === 'Enter'){
+                  e.preventDefault()
+                  if (record && !loading && !isLoading){
+                    handleSubmit()
+                  }
+                }
+              }}
               onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
               onBlur={e=>{
                 const raw = (e.target as HTMLInputElement).value.trim()
