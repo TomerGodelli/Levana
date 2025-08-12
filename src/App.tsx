@@ -40,7 +40,7 @@ function DebugTamuzList(){
     async function load(){
       setLoading(true)
       try{
-        const res = await fetch(`/data/1993.json`)
+        const res = await fetch(`${import.meta.env.BASE_URL}data/dates/1993.json`)
         const data = await res.json() as YearData
         if (ignore) return
         const entries = Object.entries(data)
@@ -674,7 +674,7 @@ export default function App(){
     async function load(){
       setLoading(true)
       try{
-        const res = await fetch(`/data/dates/${year}.json`)
+        const res = await fetch(`${import.meta.env.BASE_URL}data/dates/${year}.json`)
         const json = await res.json() as YearData
         if (!ignore) setYearData(json)
       } finally { setLoading(false) }
@@ -907,7 +907,7 @@ export default function App(){
 
   useEffect(()=>{
     let ignore=false
-    fetch('/data/facts/facts.json')
+    fetch(`${import.meta.env.BASE_URL}data/facts/facts.json`)
       .then(r=> r.ok ? r.json() : [])
       .then((arr)=>{ if (!ignore && Array.isArray(arr)) setFacts(arr as string[]) })
       .catch(()=>{})
@@ -1224,7 +1224,7 @@ export default function App(){
                   <div className="hand-hint-row">
                     {showHints && !userInteractedWithSlider && (
                       <div className="hand-hint" style={{left: `calc(${thumbLeftPct}% + 5px)`}}>
-                        <img className="icon" src="/data/icons/hand-swipe.svg" alt="" />
+                        <img className="icon" src={`${import.meta.env.BASE_URL}data/icons/hand-swipe.svg`} alt="" />
                       </div>
                     )}
                   </div>
