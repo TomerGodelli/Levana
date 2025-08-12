@@ -31,22 +31,22 @@ body {
 .label { font-weight: 700; margin-bottom: 8px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .input { 
-  font-size: clamp(16px, 4vw, 20px); 
-  padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px); 
-  border-radius: 12px; 
+  font-size: clamp(16px, 4vw, 22px); 
+  padding: clamp(10px, 2.5vw, 16px) clamp(16px, 4vw, 24px); 
+  border-radius: clamp(10px, 2.5vw, 16px); 
   border: 1px solid #a5b4fc33; 
   background: rgba(255,255,255,0.1); 
   color: #eef2ff;
-  min-width: 0; /* Allow inputs to shrink */
-  width: 100%; /* Make inputs responsive */
-  max-width: 200px; /* Reasonable maximum */
+  min-width: 140px; /* Ensure minimum width for date display */
+  width: clamp(160px, 32vw, 240px); /* Slightly larger for better date fit */
+  max-width: 240px; /* Increased maximum for date */
 }
 .input::placeholder { color: #c7d2feaa; }
 .button { 
   background: #6c5ce7; 
   color: white; 
   border: none; 
-  border-radius: 14px; 
+  border-radius: clamp(10px, 2.5vw, 14px); 
   padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px); 
   font-size: clamp(14px, 3.5vw, 18px); 
   cursor: pointer;
@@ -54,6 +54,16 @@ body {
   white-space: nowrap; /* Prevent text wrapping */
 }
 .button:disabled { opacity: .5; cursor: default; }
+
+/* Hour button to match input sizes */
+.button.button-small { 
+  padding: clamp(10px, 2.5vw, 16px) clamp(16px, 4vw, 24px); 
+  font-size: clamp(16px, 4vw, 22px); 
+  border-radius: clamp(10px, 2.5vw, 16px);
+  width: clamp(160px, 32vw, 240px); /* Match updated input width */
+  height: auto; /* Let height adjust to match inputs */
+  min-width: 140px; /* Same as input minimum */
+}
 
 /* Hero */
 .hero { 
@@ -101,7 +111,10 @@ body {
   border-radius: 0; 
   overflow: hidden; 
   background: linear-gradient(180deg, var(--day), #fff); 
-  transition: background 800ms ease; 
+  transition: background 800ms ease;
+  /* Prevent touch scroll from affecting the sky animation */
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
 }
 .sky.mode-day { --mtn-top: #8b5e34; --mtn-bot: #5a3e1e; --mtn-shade: #6d4b26; }
 .sky.mode-dawn { --mtn-top: #a16d3a; --mtn-bot: #6a4526; --mtn-shade: #7a5230; }
@@ -144,11 +157,40 @@ body {
 /* Daytime moon outline is applied conditionally in component for ultra-thin phases */
 
 .clouds { position: absolute; top: -1px; bottom: -1px; left: -2px; right: -2px; pointer-events: none; z-index: 3; }
-.cloud { position: absolute; left: -30%; width: 260px; height: 84px; opacity: 0.5; animation-name: drift; animation-timing-function: linear; animation-iteration-count: infinite; }
-.cloud .puff { position: absolute; background: rgba(255,255,255,0.85); border-radius: 999px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
-.cloud .puff.a { width: 90px; height: 54px; left: 20px; top: 14px; }
-.cloud .puff.b { width: 130px; height: 70px; left: 60px; top: 8px; }
-.cloud .puff.c { width: 80px; height: 50px; left: 130px; top: 20px; }
+.cloud { 
+  position: absolute; 
+  left: -30%; 
+  width: clamp(200px, 25vw, 260px); 
+  height: clamp(64px, 8vw, 84px); 
+  opacity: 0.5; 
+  animation-name: drift; 
+  animation-timing-function: linear; 
+  animation-iteration-count: infinite; 
+}
+.cloud .puff { 
+  position: absolute; 
+  background: rgba(255,255,255,0.85); 
+  border-radius: 999px; 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05); 
+}
+.cloud .puff.a { 
+  width: clamp(68px, 8.5vw, 90px); 
+  height: clamp(41px, 5.2vw, 54px); 
+  left: clamp(15px, 1.9vw, 20px); 
+  top: clamp(11px, 1.3vw, 14px); 
+}
+.cloud .puff.b { 
+  width: clamp(98px, 12.3vw, 130px); 
+  height: clamp(53px, 6.6vw, 70px); 
+  left: clamp(45px, 5.7vw, 60px); 
+  top: clamp(6px, 0.8vw, 8px); 
+}
+.cloud .puff.c { 
+  width: clamp(60px, 7.6vw, 80px); 
+  height: clamp(38px, 4.7vw, 50px); 
+  left: clamp(98px, 12.3vw, 130px); 
+  top: clamp(15px, 1.9vw, 20px); 
+}
 @keyframes drift { from { transform: translateX(0) } to { transform: translateX(160vw) } }
 
 /* Ground layers */
@@ -161,7 +203,14 @@ body {
   pointer-events: none; 
   z-index: 5; 
 }
-.mountains svg { width: 100%; height: 100%; display: block; }
+.mountains svg { 
+  width: 100%; 
+  height: 100%; 
+  display: block; 
+  /* Preserve aspect ratio */
+  object-fit: contain;
+  object-position: bottom;
+}
 .trees { 
   position: absolute; 
   left: 0; 
@@ -173,9 +222,16 @@ body {
   clip-path: inset(0 35% 0 0); 
   transform: translateY(10%); 
 }
-.trees svg { width: 100%; height: 100%; display: block; }
+.trees svg { 
+  width: 100%; 
+  height: 100%; 
+  display: block; 
+  /* Preserve aspect ratio */
+  object-fit: contain;
+  object-position: bottom;
+}
 /* Ground under trees */
-.ground { position: absolute; left: 0; right: 40%; bottom: 0; height: 35%; pointer-events: none; z-index: 7; }
+.ground { position: absolute; left: 0; right: 35%; bottom: 0; height: 35%; pointer-events: none; z-index: 7; }
 .ground svg { width: 100%; height: 100%; display: block; }
 /* Sea on the left */
 .sea { position: absolute; right: 0; width: 40%; bottom: 0; height: 15%; background: linear-gradient(180deg, #8fd5ff, #2c79b8); box-shadow: inset 0 8px 20px rgba(0,0,0,0.25); z-index: 4; overflow: hidden; }
@@ -301,7 +357,10 @@ body {
   background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.25)); 
   z-index: 10; 
   box-sizing: border-box; 
-  overflow: hidden; 
+  overflow: hidden;
+  /* Allow touch scroll only in overlay controls */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 .overlay-inner { display: none }
 .overlay-edges { display: none }
@@ -544,7 +603,7 @@ body {
 /* Mobile Phones (up to 767px) */
 @media (max-width: 767px) {
   :root {
-    --footer-height: 160px; /* Reduce footer height on mobile */
+    --footer-height: 200px; /* Increase footer height on mobile for facts visibility */
   }
   
   .hero {
@@ -563,9 +622,24 @@ body {
     align-items: stretch;
   }
   
-  .input, .button {
-    max-width: none;
-    width: 100%;
+  .input {
+    width: clamp(150px, 42vw, 200px); /* Even larger for proper date fit */
+    font-size: clamp(16px, 4.5vw, 20px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 18px);
+    min-width: 140px; /* Ensure minimum for date */
+  }
+  
+  .button {
+    width: auto;
+    font-size: clamp(12px, 3.5vw, 16px);
+    padding: clamp(6px, 1.5vw, 8px) clamp(10px, 2.5vw, 14px);
+  }
+  
+  .button.button-small {
+    width: clamp(150px, 42vw, 200px); /* Match updated mobile input width */
+    font-size: clamp(16px, 4.5vw, 20px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 18px);
+    min-width: 140px; /* Same as input minimum */
   }
   
   .overlay-grid {
@@ -591,9 +665,11 @@ body {
     grid-column: 1;
     grid-row: 3;
     order: 2;
-    max-height: 80px;
+    max-height: 120px;
     overflow-y: auto;
     overflow-x: hidden;
+    /* Enable smooth scrolling for facts */
+    scroll-behavior: smooth;
   }
   
   .facts {
@@ -645,23 +721,35 @@ body {
   
   /* Maintain proper proportions for landscape elements on mobile */
   .mountains {
-    height: 45%;
-    width: 65%;
+    height: clamp(25%, 30vh, 35%);
+    width: clamp(60%, 65vw, 70%);
+    /* Maintain aspect ratio to prevent stretching */
+    aspect-ratio: 2.2 / 1;
+    object-fit: contain;
   }
   
   .trees {
-    height: 45%;
-    width: 65%;
-    transform: translateY(10%);
+    height: clamp(18%, 22vh, 26%);
+    width: clamp(60%, 65vw, 70%);
+    transform: translateY(12%);
+    /* Maintain aspect ratio to prevent stretching */
+    aspect-ratio: 2.2 / 1;
+    object-fit: contain;
   }
   
   .ground {
-    height: 35%;
+    height: clamp(18%, 22vh, 28%);
+    /* Maintain aspect ratio */
+    aspect-ratio: 3 / 1;
+    object-fit: contain;
   }
   
   .sea {
-    height: 15%;
-    width: 40%;
+    height: clamp(10%, 12vh, 15%);
+    width: clamp(45%, 50vw, 55%);
+    /* Maintain aspect ratio and ensure proper intersection with mountains */
+    aspect-ratio: 4 / 1;
+    object-fit: contain;
   }
   
   /* Improve sky proportions for better arc appearance on mobile */
@@ -697,7 +785,7 @@ body {
 /* Very small screens (up to 480px) - extra adjustments */
 @media (max-width: 480px) {
   :root {
-    --footer-height: 140px;
+    --footer-height: 180px; /* Increased for better facts visibility */
   }
   
   .sky {
@@ -736,5 +824,46 @@ body {
     bottom: 15px;
     font-size: 11px;
     padding: 3px 6px;
+  }
+  
+  /* Extra small inputs and buttons for very small screens */
+  .input {
+    width: clamp(130px, 48vw, 170px); /* Larger for date fit on tiny screens */
+    font-size: clamp(14px, 4.5vw, 18px);
+    padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+    min-width: 130px; /* Higher minimum for very small screens */
+  }
+  
+  .button.button-small {
+    width: clamp(130px, 48vw, 170px); /* Match updated very small input width */
+    font-size: clamp(14px, 4.5vw, 18px);
+    padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+    min-width: 130px; /* Same as input minimum */
+  }
+  
+  /* Extra proportions adjustments for very small screens */
+  .mountains {
+    height: clamp(20%, 25vh, 30%);
+    width: clamp(55%, 60vw, 65%);
+    /* More conservative aspect ratio for tiny screens */
+    aspect-ratio: 2.5 / 1;
+  }
+  
+  .trees {
+    height: clamp(15%, 18vh, 22%);
+    width: clamp(55%, 60vw, 65%);
+    transform: translateY(8%);
+    aspect-ratio: 2.5 / 1;
+  }
+  
+  .ground {
+    height: clamp(15%, 20vh, 25%);
+    aspect-ratio: 3.5 / 1;
+  }
+  
+  .sea {
+    height: clamp(8%, 10vh, 12%);
+    width: clamp(40%, 45vw, 50%);
+    aspect-ratio: 5 / 1;
   }
 } 

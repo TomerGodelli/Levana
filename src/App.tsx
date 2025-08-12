@@ -382,36 +382,57 @@ function arcPosition(minutes:number, rise:number|null, set:number|null, width:nu
   const elapsed = wraps ? (minutes >= rise ? (minutes - rise) : (1440 - rise) + minutes) : (minutes - rise)
   const t = total > 0 ? Math.min(1, Math.max(0, elapsed / total)) : 0
   
-  // Calculate aspect ratio to maintain circular arc
-  const aspectRatio = width / height
-  
   // Left-to-right (east on left → west on right)
   const cx = lerp(12, 88, t)
   
-  // Adjust the arc height based on aspect ratio to maintain circular appearance
-  const baseArcHeight = 72
+  // Calculate arc based on dimensions with mobile/PC adjustments
+  // Arc spans from 12% to 88% of width = 76% of container width
+  const arcWidthPercent = 76 // from 12% to 88%
+  const arcWidthPixels = (arcWidthPercent / 100) * width
   
-  // Simple but effective adjustments:
-  // Keep desktop close to original, adjust mobile more significantly
-  let adjustedArcHeight
-  if (aspectRatio >= 3.0) {
-    // Ultra-wide monitors - reduce significantly
-    adjustedArcHeight = baseArcHeight * 0.4
-  } else if (aspectRatio >= 2.4) {
-    // Wide screens/mobile landscape - reduce moderately
-    adjustedArcHeight = baseArcHeight * 0.55
+  // Base circular arc height (radius = arcWidth / 2)
+  const baseCircularArcHeightPixels = arcWidthPixels / 2
+  
+  // Adjust based on aspect ratio for better appearance
+  const aspectRatio = width / height
+  let adjustedArcHeightPixels
+  
+  if (aspectRatio < 1.0) {
+    // Mobile portrait - make arc bit more than width for better appearance
+    adjustedArcHeightPixels = baseCircularArcHeightPixels * 1.15
   } else if (aspectRatio >= 1.6) {
-    // Standard desktop - minimal reduction to keep high arc
-    adjustedArcHeight = baseArcHeight * 0.95
-  } else if (aspectRatio >= 1.0) {
-    // Tablet screens - keep original height
-    adjustedArcHeight = baseArcHeight
+    // PC/Desktop - make arc bit less than width for better appearance  
+    adjustedArcHeightPixels = baseCircularArcHeightPixels * 0.85
   } else {
-    // Mobile portrait - reduce for better proportions
-    adjustedArcHeight = baseArcHeight * 0.7
+    // Tablet - keep close to circular
+    adjustedArcHeightPixels = baseCircularArcHeightPixels
   }
   
-  const cy = 90 - Math.sin(t * Math.PI) * adjustedArcHeight
+  // Convert back to percentage of container height
+  const arcHeightPercent = (adjustedArcHeightPixels / height) * 100
+  
+  // Calculate clearance for overlay-top based on screen size
+  // Mobile needs more clearance due to larger overlay elements
+  let topClearancePercent
+  if (aspectRatio < 1.0) {
+    // Mobile portrait - more clearance needed
+    topClearancePercent = 18
+  } else if (aspectRatio >= 1.6) {
+    // Desktop - less clearance needed
+    topClearancePercent = 12
+  } else {
+    // Tablet - medium clearance
+    topClearancePercent = 15
+  }
+  
+  // Clamp the arc height to reasonable bounds, accounting for top clearance
+  // Arc should not exceed (85% - topClearance) to avoid covering the moon
+  const maxArcHeight = Math.min(85 - topClearancePercent, arcHeightPercent)
+  const clampedArcHeightPercent = Math.max(25, maxArcHeight)
+  
+  // Adjust the base position to account for clearance (start arc lower)
+  const baseY = 90 + topClearancePercent * 0.3 // Move base position down slightly
+  const cy = baseY - Math.sin(t * Math.PI) * clampedArcHeightPercent
   return { x: (cx/100)*width, y: (cy/100)*height }
 }
 
@@ -1188,46 +1209,17 @@ export default function App(){
         <div className="hero-inline" style={isLoading ? {pointerEvents:'none', opacity:0.9} : undefined}>
           <h1 className="caption">איפה התחבאה לבנה ביום בו נולדתם?</h1>
           <span className="label">מתי נולדתם?</span>
-          <div className="row" style={{justifyContent:'center'}} dir="ltr">
-            <input
-              className="input"
-              style={{minWidth:'auto'}}
-              type="date"
-              min="1948-01-01"
-              max="2030-01-01"
-              value={date}
-              ref={dateInputRef}
-              onKeyDown={e=>{
-                if (e.key === 'Enter'){
-                  e.preventDefault()
-                  if (record && !loading && !isLoading){
-                    handleSubmit()
-                  }
-                }
-              }}
-              onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
-              onBlur={e=>{
-                const raw = (e.target as HTMLInputElement).value.trim()
-                const m = raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/)
-                if (m){
-                  const y = m[1]
-                  const mm = String(Math.min(12, Math.max(1, Number(m[2])))).padStart(2,'0')
-                  const dd = String(Math.min(31, Math.max(1, Number(m[3])))).padStart(2,'0')
-                  const norm = `${y}-${mm}-${dd}`
-                  if (norm >= '1948-01-01' && norm <= '2030-01-01'){
-                    setDate(norm)
-                  }
-                }
-              }}
-              disabled={isLoading}
-            />
-            {showTimePicker ? (
+          <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'12px'}}>
+            {/* Date picker - centered */}
+            <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
               <input
                 className="input"
                 style={{minWidth:'auto'}}
-                type="time"
-                value={hour}
-                ref={timeInputRef}
+                type="date"
+                min="1948-01-01"
+                max="2030-01-01"
+                value={date}
+                ref={dateInputRef}
                 onKeyDown={e=>{
                   if (e.key === 'Enter'){
                     e.preventDefault()
@@ -1236,15 +1228,51 @@ export default function App(){
                     }
                   }
                 }}
-                onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
+                onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
+                onBlur={e=>{
+                  const raw = (e.target as HTMLInputElement).value.trim()
+                  const m = raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/)
+                  if (m){
+                    const y = m[1]
+                    const mm = String(Math.min(12, Math.max(1, Number(m[2])))).padStart(2,'0')
+                    const dd = String(Math.min(31, Math.max(1, Number(m[3])))).padStart(2,'0')
+                    const norm = `${y}-${mm}-${dd}`
+                    if (norm >= '1948-01-01' && norm <= '2030-01-01'){
+                      setDate(norm)
+                    }
+                  }
+                }}
                 disabled={isLoading}
               />
-            ) : (
-              <button className="button" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
-            )}
+            </div>
+            
+            {/* Hour picker/button - below date picker */}
+            <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
+              {showTimePicker ? (
+                <input
+                  className="input"
+                  style={{minWidth:'auto'}}
+                  type="time"
+                  value={hour}
+                  ref={timeInputRef}
+                  onKeyDown={e=>{
+                    if (e.key === 'Enter'){
+                      e.preventDefault()
+                      if (record && !loading && !isLoading){
+                        handleSubmit()
+                      }
+                    }
+                  }}
+                  onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
+                  disabled={isLoading}
+                />
+              ) : (
+                <button className="button button-small" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
+              )}
+            </div>
           </div>
-          <div className="row" style={{justifyContent:'center', marginTop:8}}>
-            <button className="button" onClick={handleSubmit} disabled={!record || loading || isLoading}>גלו</button>
+          <div className="row" style={{justifyContent:'center', marginTop: 'clamp(16px, 4vw, 24px)', padding: 'clamp(8px, 2vw, 16px)'}}>
+            <button className="button" style={{padding: 'clamp(10px, 2.5vw, 14px) clamp(20px, 5vw, 32px)'}} onClick={handleSubmit} disabled={!record || loading || isLoading}>גלו</button>
           </div>
           {isLoading && (
             <div style={{marginTop:18}}>
