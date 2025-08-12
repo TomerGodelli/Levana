@@ -598,7 +598,7 @@ export default function App(){
     return <DebugTamuzList />
   }
 
-  const [date, setDate] = useState('1993-09-04')
+  const [date, setDate] = useState('1969-07-20')
   const [hour, setHour] = useState('00:00')
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [submitted, setSubmitted] = useState(false)
