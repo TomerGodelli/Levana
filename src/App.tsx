@@ -381,9 +381,37 @@ function arcPosition(minutes:number, rise:number|null, set:number|null, width:nu
   const total = wraps ? (1440 - rise) + set : (set - rise)
   const elapsed = wraps ? (minutes >= rise ? (minutes - rise) : (1440 - rise) + minutes) : (minutes - rise)
   const t = total > 0 ? Math.min(1, Math.max(0, elapsed / total)) : 0
+  
+  // Calculate aspect ratio to maintain circular arc
+  const aspectRatio = width / height
+  
   // Left-to-right (east on left → west on right)
   const cx = lerp(12, 88, t)
-  const cy = 90 - Math.sin(t * Math.PI) * 72
+  
+  // Adjust the arc height based on aspect ratio to maintain circular appearance
+  const baseArcHeight = 72
+  
+  // Simple but effective adjustments:
+  // Keep desktop close to original, adjust mobile more significantly
+  let adjustedArcHeight
+  if (aspectRatio >= 3.0) {
+    // Ultra-wide monitors - reduce significantly
+    adjustedArcHeight = baseArcHeight * 0.4
+  } else if (aspectRatio >= 2.4) {
+    // Wide screens/mobile landscape - reduce moderately
+    adjustedArcHeight = baseArcHeight * 0.55
+  } else if (aspectRatio >= 1.6) {
+    // Standard desktop - minimal reduction to keep high arc
+    adjustedArcHeight = baseArcHeight * 0.95
+  } else if (aspectRatio >= 1.0) {
+    // Tablet screens - keep original height
+    adjustedArcHeight = baseArcHeight
+  } else {
+    // Mobile portrait - reduce for better proportions
+    adjustedArcHeight = baseArcHeight * 0.7
+  }
+  
+  const cy = 90 - Math.sin(t * Math.PI) * adjustedArcHeight
   return { x: (cx/100)*width, y: (cy/100)*height }
 }
 
@@ -1161,30 +1189,9 @@ export default function App(){
           <h1 className="caption">איפה התחבאה לבנה ביום בו נולדתם?</h1>
           <span className="label">מתי נולדתם?</span>
           <div className="row" style={{justifyContent:'center'}} dir="ltr">
-            {showTimePicker ? (
-              <input
-                className="input"
-                style={{minWidth:140}}
-                type="time"
-                value={hour}
-                ref={timeInputRef}
-                onKeyDown={e=>{
-                  if (e.key === 'Enter'){
-                    e.preventDefault()
-                    if (record && !loading && !isLoading){
-                      handleSubmit()
-                    }
-                  }
-                }}
-                onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
-                disabled={isLoading}
-              />
-            ) : (
-              <button className="button" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
-            )}
             <input
               className="input"
-              style={{minWidth:140}}
+              style={{minWidth:'auto'}}
               type="date"
               min="1948-01-01"
               max="2030-01-01"
@@ -1214,6 +1221,27 @@ export default function App(){
               }}
               disabled={isLoading}
             />
+            {showTimePicker ? (
+              <input
+                className="input"
+                style={{minWidth:'auto'}}
+                type="time"
+                value={hour}
+                ref={timeInputRef}
+                onKeyDown={e=>{
+                  if (e.key === 'Enter'){
+                    e.preventDefault()
+                    if (record && !loading && !isLoading){
+                      handleSubmit()
+                    }
+                  }
+                }}
+                onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
+                disabled={isLoading}
+              />
+            ) : (
+              <button className="button" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
+            )}
           </div>
           <div className="row" style={{justifyContent:'center', marginTop:8}}>
             <button className="button" onClick={handleSubmit} disabled={!record || loading || isLoading}>גלו</button>
