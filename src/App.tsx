@@ -1205,7 +1205,7 @@ export default function App(){
                   <>
                   <div className="slider-wrap">
                   {showHints && !userInteractedWithSlider && (
-                    <div className="hand-hint-text" style={{left: `${thumbLeftPct}%`, opacity: 1}}>גרור כדי להזיז את הירח לאורך היום</div>
+                    <div className="hand-hint-text" style={{left: `${thumbLeftPct}%`, opacity: 1}}>גלו איך הירח נראה בשעות שונות של היום</div>
                   )}
                   {/* removed duplicate summary inside slider */}
                   <input className="slider" type="range" min={0} max={maxVal} step={1} value={sliderPos}
