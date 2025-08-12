@@ -40,7 +40,7 @@ function DebugTamuzList(){
     async function load(){
       setLoading(true)
       try{
-        const res = await fetch(`${import.meta.env.BASE_URL}data/dates/1993.json`)
+        const res = await fetch(`${import.meta.env['BASE_URL']}data/dates/1993.json`)
         const data = await res.json() as YearData
         if (ignore) return
         const entries = Object.entries(data)
@@ -246,7 +246,9 @@ function skyMode(minutes:number, sunrise:number|null, sunset:number|null): 'mode
   const dawnStart = sunrise - 120
   const duskEnd = sunset + 120
   if (minutes < dawnStart || minutes > duskEnd) return 'mode-night'
-  if (minutes >= sunrise && minutes <= sunset) return 'mode-day'
+  // End day 30 minutes before sunset to enter dusk earlier on evening only
+  const eveningDayEnd = sunset - 30
+  if (minutes >= sunrise && minutes <= eveningDayEnd) return 'mode-day'
   return 'mode-dusk'
 }
 
@@ -262,7 +264,8 @@ function skyColor(minutes:number, sunrise:number|null, sunset:number|null){
 
   const dawnInStart = sunrise - 120
   const dawnInEnd = sunrise + 30
-  const duskOutStart = sunset - 30
+  // Start dusk background earlier: sunset - 130 minutes
+  const duskOutStart = sunset - 130
   const duskOutEnd = sunset + 120
 
   if (minutes < dawnInStart) {
@@ -539,9 +542,9 @@ function Mountains(){
             <stop offset="100%" stopColor="var(--mtn-bot)"/>
           </linearGradient>
         </defs>
-        {/* swap mountain colors: darker back, gradient front (or vice versa per request) */}
-        <path d="M0 28 L10 18 L20 24 L30 16 L42 22 L53 14 L66 22 L80 17 L92 23 L96 32 L99 38 L100 39 L100 40 L0 40 Z" fill="var(--mtn-shade)" opacity="0.9"/>
-        <path d="M0 31 L12 22 L24 27 L36 20 L48 25 L60 19 L74 25 L88 21 L94 33 L97.5 37 L99 39 L100 40 L0 40 Z" fill="url(#mgrad)" opacity="0.95"/>
+        {/* Back mountain and front ridge fully opaque to avoid showing the moon through */}
+        <path d="M0 28 L10 18 L20 24 L30 16 L42 22 L53 14 L66 22 L80 17 L92 23 L96 32 L99 38 L100 39 L100 40 L0 40 Z" fill="var(--mtn-shade)" opacity="1"/>
+        <path d="M0 31 L12 22 L24 27 L36 20 L48 25 L60 19 L74 25 L88 21 L94 33 L97.5 37 L99 39 L100 40 L0 40 Z" fill="url(#mgrad)" opacity="1"/>
       </svg>
     </div>
   )
@@ -571,7 +574,8 @@ function Trees(){
     <div className="trees" aria-hidden>
       <svg preserveAspectRatio="none" viewBox="0 0 100 40">
         {new Array(count).fill(0).map((_,i)=>{
-          const x = (i/(count-1)) * 100
+          const xBase = (i/(count-1)) * 100
+          const x = xBase + (i === 2 ? 4 : 0) // nudge 3rd tree a bit more to the right
           const h = 9 + (i%3)*3
           return (
             <g key={i} transform={`translate(${x} 0)`}>
@@ -715,7 +719,7 @@ export default function App(){
     async function load(){
       setLoading(true)
       try{
-        const res = await fetch(`${import.meta.env.BASE_URL}data/dates/${year}.json`)
+        const res = await fetch(`${import.meta.env['BASE_URL']}data/dates/${year}.json`)
         const json = await res.json() as YearData
         if (!ignore) setYearData(json)
       } finally { setLoading(false) }
@@ -951,7 +955,7 @@ export default function App(){
 
   useEffect(()=>{
     let ignore=false
-    fetch(`${import.meta.env.BASE_URL}data/facts/facts.json`)
+    fetch(`${import.meta.env['BASE_URL']}data/facts/facts.json`)
       .then(r=> r.ok ? r.json() : [])
       .then((arr)=>{ if (!ignore && Array.isArray(arr)) setFacts(arr as string[]) })
       .catch(()=>{})
@@ -1296,7 +1300,7 @@ export default function App(){
                   <div className="hand-hint-row">
                     {showHints && !userInteractedWithSlider && (
                       <div className="hand-hint" style={{left: `calc(${thumbLeftPct}% + 5px)`}}>
-                        <img className="icon" src={`${import.meta.env.BASE_URL}data/icons/hand-swipe.svg`} alt="" />
+                        <img className="icon" src={`${import.meta.env['BASE_URL']}data/icons/hand-swipe.svg`} alt="" />
                       </div>
                     )}
                   </div>
