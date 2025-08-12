@@ -44,11 +44,11 @@ body { font-family: 'Rubik', 'Varela Round', system-ui, -apple-system, sans-seri
 
 .sun, .moon { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; }
 .sun { z-index: 1; width: 48px; height: 48px; background: radial-gradient(circle at 30% 30%, #fff6a0, #f3c52a); filter: drop-shadow(0 0 5px rgba(255,200,0,0.35)); }
-.moon { z-index: 1; width: 84px; height: 84px; filter: drop-shadow(0 0 10px rgba(200,220,255,0.3)); }
+.moon { z-index: 1; width: 84px; height: 84px; filter: none; }
 .moon svg { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); }
 .sky.mode-day .moon svg { filter: drop-shadow(0 0 6px rgba(0,0,0,0.8)); }
-/* Bright moon glow at night */
-.sky.mode-night .moon svg { filter: drop-shadow(0 0 10px rgba(210,230,255,0.9)) drop-shadow(0 0 22px rgba(170,210,255,0.6)); }
+/* Night glow handled dynamically in JS; avoid double-glow here */
+.sky.mode-night .moon svg { filter: none; }
 .loading-moon svg { filter: drop-shadow(0 0 10px rgba(210,230,255,0.9)) drop-shadow(0 0 22px rgba(170,210,255,0.6)); }
 /* Improve moon visibility during day by adding a dark outline */
 /* Daytime moon outline is applied conditionally in component for ultra-thin phases */

@@ -1350,8 +1350,34 @@ export default function App(){
             const effectiveRise = moonriseA ?? timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
             const effectiveSet = (moonsetA != null ? moonsetA : moonsetB)
             const pos = arcPosition(minutes, effectiveRise, effectiveSet, skySize.width, skySize.height)
+            // Night-glow fade around night mode: fade in 30 min BEFORE night starts, fade out 30 min AFTER night ends
+            let nightGlowWeight = 0
+            if (sunrise!=null && sunset!=null){
+              const dawnStart = sunrise - 120
+              const duskEnd = sunset + 120
+              const fade = 90
+              // Fade-in window before night starts on the evening side
+              if (minutes > (duskEnd - fade) && minutes <= duskEnd){
+                nightGlowWeight = (minutes - (duskEnd - fade)) / fade
+              }
+              // Full night between duskEnd and dawnStart (wrap over midnight)
+              if (minutes > duskEnd || minutes < dawnStart){
+                nightGlowWeight = 1
+              }
+              // Fade-out window AFTER night ends on the morning side
+              if (minutes >= dawnStart && minutes < (dawnStart + fade)){
+                nightGlowWeight = 1 - ((minutes - dawnStart) / fade)
+              }
+              nightGlowWeight = Math.max(0, Math.min(1, nightGlowWeight))
+            }
             return pos && (
-              <div className="moon" style={{left: pos.x, top: pos.y}}>
+              <div className="moon" style={{
+                left: pos.x,
+                top: pos.y,
+                filter: nightGlowWeight>0
+                  ? `drop-shadow(0 0 12px rgba(210,230,255,${(1.0*nightGlowWeight).toFixed(3)})) drop-shadow(0 0 28px rgba(170,210,255,${(0.75*nightGlowWeight).toFixed(3)}))`
+                  : undefined
+              }}>
                 {(() => {
                   let hebrewDayNum = record?.hebrew_day ?? 1
                   if (hebrewDayNum === 1) hebrewDayNum = 2
