@@ -13,25 +13,26 @@
   --mobile-breakpoint: 768px;
   --tablet-breakpoint: 1024px;
   --desktop-breakpoint: 1200px;
+  
+  /* Orientation-specific variables (desktop defaults) */
+  --sky-min-height: 360px;
+  --footer-height-mobile: 180px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
 }
 
 /* Global */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-html, body {
-  overflow: hidden; /* Disable all scrolling */
-  position: fixed; /* Prevent mobile browser zoom/scroll */
-  width: 100%;
-  height: 100%;
-  touch-action: manipulation; /* Allow only tap, double-tap, pinch-zoom but disable pan/scroll */
-}
 body { 
   font-family: 'Rubik', 'Varela Round', system-ui, -apple-system, sans-serif; 
   direction: rtl; 
   background: var(--night); 
   color: #e6edf6; 
+  /* Prevent horizontal scrolling on mobile */
+  overflow-x: hidden;
 }
-.container { width: 100%; height: 100vh; padding: 0; overflow: hidden; }
+.container { width: 100%; min-height: 100vh; padding: 0; }
 .card { background: transparent; border-radius: 0; padding: 16px; box-shadow: none; }
 .label { font-weight: 700; margin-bottom: 8px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -357,29 +358,36 @@ body {
   left: 0; 
   right: 0; 
   bottom: 0; 
-  height: var(--footer-height); 
-  padding: clamp(5px, 2vw, 10px); 
-  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.25)); 
-  z-index: 10; 
+  width: 100vw; /* Ensure full width */
+  height: calc(var(--footer-height) + var(--safe-area-bottom)); 
+  padding: 10px; 
+  padding-bottom: calc(10px + var(--safe-area-bottom)); 
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.4)); 
+  z-index: 20; /* Higher z-index for consistency */
   box-sizing: border-box; 
-  overflow: hidden;
-  /* Allow touch scroll only in overlay controls */
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible; /* Allow content to be visible */
+  /* Ensure proper rendering on all devices */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
 }
 .overlay-inner { display: none }
 .overlay-edges { display: none }
 .overlay-grid { 
   width: 100%; 
+  max-width: 100vw; /* Ensure full width usage */
   margin: 0 auto; 
   height: calc(var(--footer-height) - 20px); 
+  min-height: 120px; /* Minimum height for all devices */
   display: grid; 
   grid-template-columns: 1fr 2fr 1fr; 
   align-items: center; 
   justify-items: stretch; 
   gap: clamp(6px, 2vw, 12px); 
   box-sizing: border-box; 
-  direction: ltr; 
+  direction: ltr;
+  /* Ensure proper positioning on all devices */
+  position: relative;
 }
 .overlay-left { 
   grid-column: 1; 
@@ -525,7 +533,7 @@ body {
 .hand-hint-text { 
   position: absolute; 
   bottom: calc(100% + clamp(3px, 1vw, 6px)); 
-  transform: translateX(-50%); 
+  /* transform handled dynamically in JavaScript */
   color: #e2e8f0; 
   font-size: clamp(10px, 2.5vw, 12px); 
   line-height: 1; 
@@ -603,9 +611,32 @@ body {
 .hebrew { font-size: 22px; text-align: center; }
 .hidden { display: none; }
 
+/* General landscape fixes for screen transitions */
+/* Removed conflicting general landscape rules */
+
+/* Desktop landscape - simplified */
+@media (min-width: 768px) and (orientation: landscape) {
+  .hero-inline {
+    flex-direction: column;
+    max-width: 600px;
+    margin: 0 auto;
+    gap: 20px;
+  }
+}
+
+/* Portrait mode - simplified */
+@media (orientation: portrait) {
+  .hero-inline {
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+
+
 /* ========== RESPONSIVE BREAKPOINTS ========== */
 
-/* Mobile Phones (up to 767px) */
+/* Mobile Phones - Base styles (both orientations) */
 @media (max-width: 767px) {
   :root {
     --footer-height: 200px; /* Increase footer height on mobile for facts visibility */
@@ -647,35 +678,7 @@ body {
     min-width: 140px; /* Same as input minimum */
   }
   
-  .overlay-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    gap: 8px;
-    height: calc(var(--footer-height) - 10px);
-  }
-  
-  .overlay-left {
-    grid-column: 1;
-    grid-row: 1;
-    order: 3;
-  }
-  
-  .overlay-center {
-    grid-column: 1;
-    grid-row: 2;
-    order: 1;
-  }
-  
-  .overlay-right {
-    grid-column: 1;
-    grid-row: 3;
-    order: 2;
-    max-height: 120px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* Enable smooth scrolling for facts */
-    scroll-behavior: smooth;
-  }
+
   
   .facts {
     padding: 0 8px;
@@ -870,5 +873,225 @@ body {
     height: clamp(8%, 10vh, 12%);
     width: clamp(40%, 45vw, 50%);
     aspect-ratio: 5 / 1;
+  }
+}
+
+/* Mobile Portrait Orientation - Vertical stacking makes sense */
+@media (max-width: 767px) and (orientation: portrait) {
+  :root {
+    --footer-height: 240px; /* Fixed height for consistency across devices */
+  }
+  
+  .sky {
+    height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    min-height: 300px; /* Fixed minimum to avoid device variance */
+    max-height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+  }
+  
+  .overlay-controls {
+    height: calc(var(--footer-height) + var(--safe-area-bottom));
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    z-index: 1000;
+  }
+  
+  /* Stack vertically in portrait - makes sense with limited width */
+  .overlay-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    height: calc(var(--footer-height) - 20px);
+    min-height: 220px; /* Fixed minimum height */
+    gap: 10px;
+    padding: 0 10px; /* Ensure content doesn't touch edges */
+  }
+  
+  .overlay-left, .overlay-center, .overlay-right {
+    grid-column: 1;
+  }
+  
+  .overlay-center {
+    order: 1; /* Slider/time first */
+  }
+  
+  .overlay-right {
+    order: 2; /* Facts second */
+  }
+  
+  .overlay-left {
+    order: 3; /* Start over button last */
+  }
+}
+
+/* Mobile Landscape - Back to working version */
+@media (max-width: 767px) and (orientation: landscape) {
+  :root {
+    --footer-height: 150px;
+  }
+  
+  .sky {
+    height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    min-height: 200px;
+    max-height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+  }
+  
+  .overlay-controls {
+    height: calc(var(--footer-height) + var(--safe-area-bottom));
+    background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.7));
+    z-index: 1000;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100vw;
+  }
+  
+  .overlay-grid {
+    grid-template-columns: 20% 60% 20%;
+    grid-template-rows: 1fr;
+    height: calc(var(--footer-height) - 20px);
+    min-height: 130px;
+    gap: 6px;
+    padding: 0 8px;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  
+  .overlay-left, .overlay-center, .overlay-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  
+  .overlay-center {
+    flex-direction: column;
+  }
+  
+  .overlay-center > div[dir="ltr"] {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  .facts {
+    font-size: 9px;
+    padding: 0;
+    line-height: 1.1;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .facts-text {
+    font-size: 9px;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  
+  .time-badge {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  
+  .slider {
+    height: 4px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+  }
+  
+  .hand-hint-text {
+    font-size: 8px;
+    max-width: 90%;
+  }
+  
+  .hand-hint-row {
+    height: 16px;
+  }
+  
+  .hand-hint .icon {
+    height: 16px;
+  }
+  
+  .button {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  /* Hero adjustments for landscape mobile - optimized for fit */
+  .hero {
+    height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    max-height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  
+  .hero-inline {
+    flex-direction: row;
+    gap: 6px; /* Reduced gap to save space */
+    max-width: 95vw;
+    width: 100%;
+    max-height: 90vh; /* Prevent overflow */
+    overflow-y: auto; /* Allow scrolling if needed */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px; /* Reduced padding to maximize usable space */
+  }
+  
+  .caption {
+    font-size: clamp(18px, 4vw, 24px); /* Smaller font for landscape */
+    margin-bottom: clamp(8px, 2vh, 18px); /* Responsive margin */
+    line-height: 1.1;
+  }
+  
+  .input, .button.button-small {
+    font-size: 14px; /* Compact font */
+    padding: 8px; /* Compact padding */
+    min-width: 120px; /* Reduced minimum width */
+    height: auto;
+  }
+  
+  .loading-moon {
+    transform: scale(0.8); /* Scale down 20% to save space */
+    margin: clamp(8px, 2vh, 18px) 0; /* Responsive margin */
+  }
+  
+  .loading-moon + div {
+    margin-top: clamp(4px, 1vh, 8px); /* Responsive text spacing */
+    font-size: clamp(11px, 2.5vw, 13px); /* Responsive loading text */
+  }
+  
+  /* Restore landscape element proportions */
+  .mountains, .trees {
+    height: 45%;
+    width: 65%;
+  }
+  
+  .ground {
+    height: 35%;
+  }
+  
+  .sea {
+    height: 15%;
+    width: 40%;
   }
 } 

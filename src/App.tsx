@@ -383,11 +383,11 @@ function arcPosition(minutes:number, rise:number|null, set:number|null, width:nu
   const t = total > 0 ? Math.min(1, Math.max(0, elapsed / total)) : 0
   
   // Left-to-right (east on left → west on right)
-  const cx = lerp(12, 88, t)
+  const cx = lerp(5, 95, t)  // Reduced padding further: 5% to 95% for maximum arc width
   
   // Calculate arc based on dimensions with mobile/PC adjustments
-  // Arc spans from 12% to 88% of width = 76% of container width
-  const arcWidthPercent = 76 // from 12% to 88%
+  // Arc spans from 5% to 95% of width = 90% of container width
+  const arcWidthPercent = 90 // from 5% to 95%
   const arcWidthPixels = (arcWidthPercent / 100) * width
   
   // Base circular arc height (radius = arcWidth / 2)
@@ -1207,54 +1207,21 @@ export default function App(){
     <div className="container">
       <div ref={heroRef} className={submitted ? 'hero hidden' : 'hero'}>
         <div className="hero-inline" style={isLoading ? {pointerEvents:'none', opacity:0.9} : undefined}>
-          <h1 className="caption">איפה התחבאה לבנה ביום בו נולדתם?</h1>
-          <span className="label">מתי נולדתם?</span>
-          <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'12px'}}>
-            {/* Date picker - centered */}
-            <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
-              <input
-                className="input"
-                style={{minWidth:'auto'}}
-                type="date"
-                min="1948-01-01"
-                max="2030-01-01"
-                value={date}
-                ref={dateInputRef}
-                onKeyDown={e=>{
-                  if (e.key === 'Enter'){
-                    e.preventDefault()
-                    if (record && !loading && !isLoading){
-                      handleSubmit()
-                    }
-                  }
-                }}
-                onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
-                onBlur={e=>{
-                  const raw = (e.target as HTMLInputElement).value.trim()
-                  const m = raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/)
-                  if (m){
-                    const y = m[1]
-                    const mm = String(Math.min(12, Math.max(1, Number(m[2])))).padStart(2,'0')
-                    const dd = String(Math.min(31, Math.max(1, Number(m[3])))).padStart(2,'0')
-                    const norm = `${y}-${mm}-${dd}`
-                    if (norm >= '1948-01-01' && norm <= '2030-01-01'){
-                      setDate(norm)
-                    }
-                  }
-                }}
-                disabled={isLoading}
-              />
-            </div>
-            
-            {/* Hour picker/button - below date picker */}
-            <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
-              {showTimePicker ? (
+          {/* Left section: Title and inputs */}
+          <div className="hero-left" style={{display:'flex', flexDirection:'column', alignItems:'center', flex:'1', maxWidth:'60%'}}>
+            <h1 className="caption">איפה התחבאה לבנה ביום בו נולדתם?</h1>
+            <span className="label">מתי נולדתם?</span>
+            <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', width:'100%'}}>
+              {/* Date picker */}
+              <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
                 <input
                   className="input"
                   style={{minWidth:'auto'}}
-                  type="time"
-                  value={hour}
-                  ref={timeInputRef}
+                  type="date"
+                  min="1948-01-01"
+                  max="2030-01-01"
+                  value={date}
+                  ref={dateInputRef}
                   onKeyDown={e=>{
                     if (e.key === 'Enter'){
                       e.preventDefault()
@@ -1263,25 +1230,74 @@ export default function App(){
                       }
                     }
                   }}
-                  onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
+                  onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
+                  onBlur={e=>{
+                    const raw = (e.target as HTMLInputElement).value.trim()
+                    const m = raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/)
+                    if (m){
+                      const y = m[1]
+                      const mm = String(Math.min(12, Math.max(1, Number(m[2])))).padStart(2,'0')
+                      const dd = String(Math.min(31, Math.max(1, Number(m[3])))).padStart(2,'0')
+                      const norm = `${y}-${mm}-${dd}`
+                      if (norm >= '1948-01-01' && norm <= '2030-01-01'){
+                        setDate(norm)
+                      }
+                    }
+                  }}
                   disabled={isLoading}
                 />
+              </div>
+              
+              {/* Hour picker/button */}
+              <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
+                {showTimePicker ? (
+                  <input
+                    className="input"
+                    style={{minWidth:'auto'}}
+                    type="time"
+                    value={hour}
+                    ref={timeInputRef}
+                    onKeyDown={e=>{
+                      if (e.key === 'Enter'){
+                        e.preventDefault()
+                        if (record && !loading && !isLoading){
+                          handleSubmit()
+                        }
+                      }
+                    }}
+                    onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
+                    disabled={isLoading}
+                  />
+                ) : (
+                  <button className="button button-small" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
+                )}
+              </div>
+              
+              {/* Submit button */}
+              <div style={{marginTop:'8px'}}>
+                <button className="button button-small" onClick={handleSubmit} disabled={!record || loading || isLoading}>גלו</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right section: Loading animation placeholder */}
+          <div className="hero-right" style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:'1', maxWidth:'40%'}}>
+            <div style={{textAlign:'center', minHeight:'120px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
+              {isLoading ? (
+                <>
+                  <div className="loading-moon" style={{display:'inline-block'}}>
+                    <MoonPhasePath illumination={loadingIllum} waxing={loadingWaxing} hebrewDay={loadingWaxing ? 8 : 23} idSuffix="-loading" disableTilt />
+                  </div>
+                  <div style={{marginTop:'8px', fontSize:'clamp(11px, 2.5vw, 13px)', color:'#cbd5e1'}}>מחשב…</div>
+                </>
               ) : (
-                <button className="button button-small" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
+                /* Invisible placeholder to maintain space */
+                <div style={{width:'70px', height:'70px', opacity:0}}>
+                  <div style={{width:'70px', height:'70px'}}></div>
+                </div>
               )}
             </div>
           </div>
-          <div className="row" style={{justifyContent:'center', marginTop: 'clamp(16px, 4vw, 24px)', padding: 'clamp(8px, 2vw, 16px)'}}>
-            <button className="button" style={{padding: 'clamp(10px, 2.5vw, 14px) clamp(20px, 5vw, 32px)'}} onClick={handleSubmit} disabled={!record || loading || isLoading}>גלו</button>
-          </div>
-          {isLoading && (
-            <div style={{marginTop:18}}>
-              <div className="loading-moon" style={{display:'inline-block'}}>
-                <MoonPhasePath illumination={loadingIllum} waxing={loadingWaxing} hebrewDay={loadingWaxing ? 8 : 23} idSuffix="-loading" disableTilt />
-              </div>
-              <div style={{marginTop:8, fontSize:13, color:'#cbd5e1'}}>מחשב…</div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1453,7 +1469,7 @@ export default function App(){
               <button className="button" onClick={handleStartOver}>התחילו מחדש</button>
             </div>
             <div className="overlay-center">
-              <div className="time-badge" style={{fontSize:18}}>{minutesToHM(minutes)}</div>
+              <div className="time-badge">{minutesToHM(minutes)}</div>
               <div dir="ltr" style={{width:'100%'}}>
               {(() => {
                 const ss0 = hebrewStart
@@ -1464,7 +1480,13 @@ export default function App(){
                   <>
                   <div className="slider-wrap">
                   {showHints && !userInteractedWithSlider && (
-                    <div className="hand-hint-text" style={{left: `${thumbLeftPct}%`, opacity: 1}}>גלו איפה הירח היה בשעות שונות של היום</div>
+                    <div className="hand-hint-text" style={{
+                      left: `${thumbLeftPct}%`, 
+                      opacity: 1,
+                      transform: thumbLeftPct < 15 ? 'translateX(0%)' : 
+                                thumbLeftPct > 85 ? 'translateX(-100%)' : 
+                                'translateX(-50%)'
+                    }}>גלו איפה הירח היה בשעות שונות של היום</div>
                   )}
                   {/* removed duplicate summary inside slider */}
                   <input className="slider" type="range" min={0} max={maxVal} step={1} value={sliderPos}
