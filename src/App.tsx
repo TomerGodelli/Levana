@@ -252,7 +252,12 @@ function skyMode(minutes:number, sunrise:number|null, sunset:number|null): 'mode
   return 'mode-dusk'
 }
 
-function skyColor(minutes:number, sunrise:number|null, sunset:number|null){
+function skyColor(
+  minutes:number,
+  sunrise:number|null,
+  sunset:number|null,
+  centers?: { dawnCenter?: string|null; duskCenter?: string|null }
+){
   const nightTop = '#0f1025', nightBot = '#000000'
   const dawnTop = '#2b1242', dawnBot = '#8a2e4e'
   const dayTop = '#a6d8ff', dayBot = '#e9f6ff'
@@ -268,6 +273,14 @@ function skyColor(minutes:number, sunrise:number|null, sunset:number|null){
   const duskOutStart = sunset - 130
   const duskOutEnd = sunset + 120
 
+  // Helper to add a soft radial focus overlay centered at a given point
+  const addFocus = (base:string, center:string|undefined|null) => {
+    if (!center) return base
+    // Tighter glow to align with apparent moon radius; fades out within ~22% of canvas
+    const glow = `radial-gradient(circle at ${center}, rgba(255,179,107,0.45) 0%, rgba(255,179,107,0.25) 10%, rgba(255,179,107,0.0) 22%)`
+    return `${glow}, ${base}`
+  }
+
   if (minutes < dawnInStart) {
     return `linear-gradient(180deg, ${nightTop}, ${nightBot})`
   }
@@ -275,10 +288,13 @@ function skyColor(minutes:number, sunrise:number|null, sunset:number|null){
     const t1 = clamp((minutes - dawnInStart) / (dawnInEnd - dawnInStart), 0, 1)
     if (t1 < 0.5){
       const tt = t1 / 0.5
-      return mixGradient(nightTop, nightBot, dawnTop, dawnBot, tt)
+      const g = mixGradient(nightTop, nightBot, dawnTop, dawnBot, tt)
+      // Focus sunrise: use computed center if available, else fallback
+      return addFocus(g, centers?.dawnCenter ?? '30% 96%')
     } else {
       const tt = (t1 - 0.5) / 0.5
-      return mixGradient(dawnTop, dawnBot, dayTop, dayBot, tt)
+      const g = mixGradient(dawnTop, dawnBot, dayTop, dayBot, tt)
+      return addFocus(g, centers?.dawnCenter ?? '30% 96%')
     }
   }
   if (minutes < duskOutStart) {
@@ -288,10 +304,15 @@ function skyColor(minutes:number, sunrise:number|null, sunset:number|null){
     const t2 = clamp((minutes - duskOutStart) / (duskOutEnd - duskOutStart), 0, 1)
     if (t2 < 0.5){
       const tt = t2 / 0.5
-      return mixGradient(dayTop, dayBot, duskTop, duskBot, tt)
+      // Sunset: swap dusk colors order
+      const g = mixGradient(dayTop, dayBot, duskBot, duskTop, tt)
+      // Focus sunset: use computed center if available, else fallback
+      return addFocus(g, centers?.duskCenter ?? '80% 96%')
     } else {
       const tt = (t2 - 0.5) / 0.5
-      return mixGradient(duskTop, duskBot, nightTop, nightBot, tt)
+      // Sunset: swap dusk colors order
+      const g = mixGradient(duskBot, duskTop, nightTop, nightBot, tt)
+      return addFocus(g, centers?.duskCenter ?? '80% 96%')
     }
   }
   return `linear-gradient(180deg, ${nightTop}, ${nightBot})`
@@ -849,7 +870,7 @@ export default function App(){
           // Only moonrise known: approximate midpoint of [mrB..end of day]
           midVisible = midpointOfInterval(mrB, 1440)
         } else { // only msB
-          midVisible = midpointOfInterval(0, msB)
+          midVisible = midpointOfInterval(0, msB as number)
         }
         // Snap to the nearest point within the intersection segments
         let best = inter[0]
@@ -944,7 +965,23 @@ export default function App(){
   const moonset = timeToMinutes(record?.moon_times.moonset ?? null)
 
   const mode = skyMode(minutes, sunrise, sunset)
-  const sky = useMemo(()=>({ background: skyColor(minutes, sunrise, sunset) }), [minutes, sunrise, sunset])
+  const sky = useMemo(()=>{
+    // Focus alignment with sun arc radius using same paramization as arcPosition
+    const toCenterPct = (t:number): string => {
+      const tt = Math.max(0, Math.min(1, t))
+      const xPct = 12 + (88 - 12) * tt
+      const yPct = 90 - Math.sin(Math.PI * tt) * 72
+      return `${xPct}% ${yPct}%`
+    }
+    // Angle/fraction offsets to allow future animation on same circle
+    const FOCUS_ANGLE_OFFSET = 0 // normalized [0..1]; 0 keeps exact endpoints
+    // Sunrise focus near the start of the arc (left)
+    const dawnCenter = (sunrise!=null) ? toCenterPct(0 + FOCUS_ANGLE_OFFSET) : null
+    // Sunset focus near upper-right along the arc; 0.75 ~ top-right; add same offset
+    const DUSK_FRACTION = 1.0
+    const duskCenter = (sunset!=null) ? toCenterPct(DUSK_FRACTION + FOCUS_ANGLE_OFFSET) : null
+    return { background: skyColor(minutes, sunrise, sunset, { dawnCenter, duskCenter }) }
+  }, [minutes, sunrise, sunset])
   // 30-minute visual lag for sea and mountains relative to sky transitions
   const minutesLag = minutes - 30
   const seaStyle = useMemo(()=>({ background: seaGradient(minutesLag, sunrise, sunset) }), [minutes, sunrise, sunset])
