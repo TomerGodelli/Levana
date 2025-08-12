@@ -635,21 +635,25 @@ export default function App(){
     const prevRec = yearData[prevKey] ?? null
     const nextRec = yearData[nextKey] ?? null
     if (!showTimePicker){
+      // No hour selected: always [D-1, D]
       return { A: prevRec ?? record, B: record }
     }
     const sunsetToday = timeToMinutes(record.sun.sunset ?? null)
     const birthMin = timeToMinutes(hour) ?? null
     if (sunsetToday!=null && birthMin!=null){
       if (birthMin < sunsetToday){
+        // H before sunset: [D-1, D]
         return { A: prevRec ?? record, B: record }
       } else {
+        // H after sunset: [D, D+1]
         return { A: record, B: nextRec ?? record }
       }
     }
-    return { A: record, B: nextRec ?? record }
+    // Fallback when hour malformed: treat as no hour → [D-1, D]
+    return { A: prevRec ?? record, B: record }
   }, [yearData, date, record, showTimePicker, hour])
 
-  const activeHebrewRecord = abWindow.A
+  const activeHebrewRecord = abWindow.B
   useEffect(()=>{
     if (!skyRef.current) return
     const el = skyRef.current
@@ -775,54 +779,57 @@ export default function App(){
   // If no intersection: use the earliest available moon time of B (moonrise or moonset).
   // If B has no moon times at all: fallback to the Hebrew window midpoint.
   const defaultAutoTargetMinutes = useMemo(()=>{
-    const startRaw = timeToMinutes(abWindow.A?.sun.sunset ?? null)
+    // No-hour case: choose a target within B (D) closest to the midpoint
+    // between moonrise and moonset of D, restricted to when the moon is visible.
     const endRaw = timeToMinutes(abWindow.B?.sun.sunset ?? null)
-    if (startRaw==null || endRaw==null) return null
-    // Slider is two segments: evening of A [start..1440] and daytime of B [0..end]
-    const sliderSegA = [{ s: startRaw, e: 1440 }]
-    const sliderSegB = [{ s: 0, e: endRaw }]
     const mrB = timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
     const msB = timeToMinutes(abWindow.B?.moon_times.moonset ?? null)
-    // Build moon-visible segments for B even if one endpoint is missing
-    let moonSegsB: Array<{s:number,e:number}> = []
-    if (mrB!=null && msB!=null) {
-      moonSegsB = toSegments(mrB, msB)
-    } else if (mrB!=null) {
-      moonSegsB = [{ s: mrB, e: 1440 }]
-    } else if (msB!=null) {
-      moonSegsB = [{ s: 0, e: msB }]
+    if (endRaw==null) return null
+    // Daytime of B (D) on the slider is [0..endRaw]
+    const daySeg = [{ s: 0, e: endRaw }]
+    // Build visible segments for D
+    let visibleSegs: Array<{s:number,e:number}> = []
+    if (mrB!=null && msB!=null){
+      visibleSegs = toSegments(mrB, msB)
+    } else if (mrB!=null){
+      visibleSegs = [{ s: mrB, e: 1440 }]
+    } else if (msB!=null){
+      visibleSegs = [{ s: 0, e: msB }]
     }
-    if (moonSegsB.length){
-      // Prefer intersection that lies on day B (daytime segment [0..endRaw])
-      const interB = intersectSegments(sliderSegB, moonSegsB)
-      if (interB.length){
-        let best = interB[0]
-        let bestLen = best.e - best.s
-        for (let i=1;i<interB.length;i++){
-          const len = interB[i].e - interB[i].s
-          if (len > bestLen){ best = interB[i]; bestLen = len }
+    if (visibleSegs.length){
+      // Intersect with B daytime
+      const inter = intersectSegments(visibleSegs, daySeg)
+      if (inter.length){
+        // Compute midpoint of D's full visible window
+        let midVisible: number
+        if (mrB!=null && msB!=null){
+          midVisible = midpointOfInterval(mrB, msB)
+        } else if (mrB!=null){
+          // Only moonrise known: approximate midpoint of [mrB..end of day]
+          midVisible = midpointOfInterval(mrB, 1440)
+        } else { // only msB
+          midVisible = midpointOfInterval(0, msB)
         }
-        return midpointOfSegment(best)
-      }
-      // Otherwise, fall back to intersection on evening of A
-      const interA = intersectSegments(sliderSegA, moonSegsB)
-      if (interA.length){
-        let best = interA[0]
-        let bestLen = best.e - best.s
-        for (let i=1;i<interA.length;i++){
-          const len = interA[i].e - interA[i].s
-          if (len > bestLen){ best = interA[i]; bestLen = len }
+        // Snap to the nearest point within the intersection segments
+        let best = inter[0]
+        let bestDist = Infinity
+        let bestPoint = inter[0].s
+        for (const seg of inter){
+          const within = (midVisible >= seg.s && midVisible <= seg.e)
+          const candidate = within ? midVisible : (Math.abs(midVisible - seg.s) < Math.abs(midVisible - seg.e) ? seg.s : seg.e)
+          const dist = Math.min(Math.abs(candidate - midVisible), Math.abs((candidate + 1440) - midVisible))
+          if (dist < bestDist){
+            best = seg
+            bestDist = dist
+            bestPoint = candidate
+          }
         }
-        return midpointOfSegment(best)
+        return bestPoint
       }
-      // No intersection: pick earliest defined B moon time
-      if (mrB!=null && msB!=null) return Math.min(mrB, msB)
-      if (mrB!=null) return mrB
-      if (msB!=null) return msB
     }
-    // Ultimate fallback: midpoint of the Hebrew window itself
-    return midpointOfInterval(startRaw, endRaw)
-  }, [abWindow.A, abWindow.B])
+    // Fallback: midpoint of B daytime
+    return Math.floor(endRaw / 2)
+  }, [abWindow.B])
 
   // Keep hand-hint position proportional to slider value
   useEffect(()=>{
@@ -845,8 +852,8 @@ export default function App(){
     const targetPos = targetOffDisp * SLIDER_SLOWDOWN_FACTOR
     setSliderPos(startPos)
     if (hebrewStart!=null){ setMinutes(hebrewStart) }
-    // During auto-scroll with no explicit hour, temporarily show B-date label
-    setOverrideGregToB(!showTimePicker)
+    // During auto-scroll with no hour: start at A, flip to B at midnight via label logic
+    setOverrideGregToB(false)
     const animStart = performance.now()
     // Dynamic auto-scroll duration: fraction * 8s, clamped to [1.5s, 5s]
     const fraction = maxSliderVal > 0 ? (targetPos / maxSliderVal) : 0
@@ -1053,10 +1060,10 @@ export default function App(){
               <div className="date-wrap">
                 <div className="hebrew-date">
                   {(() => {
-                    // Hebrew date and month/year must always follow A (start of Hebrew-day window)
-                    const hebDay = abWindow.A?.hebrew_day
-                    const hebMonth = abWindow.A?.hebrew_month
-                    const hebYear = abWindow.A?.hebrew_year
+                    // Hebrew date follows B (end of Hebrew-day window) per spec
+                    const hebDay = abWindow.B?.hebrew_day
+                    const hebMonth = abWindow.B?.hebrew_month
+                    const hebYear = abWindow.B?.hebrew_year
                     return (
                       <>
                         <span className="day-highlight">
