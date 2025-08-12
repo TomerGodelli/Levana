@@ -622,6 +622,8 @@ export default function App(){
 
   const heroRef = useRef<HTMLDivElement|null>(null)
   const skyRef = useRef<HTMLDivElement|null>(null)
+  const dateInputRef = useRef<HTMLInputElement|null>(null)
+  const timeInputRef = useRef<HTMLInputElement|null>(null)
   const [skySize, setSkySize] = useState<{width:number;height:number}>({width: 900, height: 360})
 
   // Single source of truth for [A, B] based on yearData/date and hour vs sunset(D)
@@ -672,6 +674,41 @@ export default function App(){
       window.removeEventListener('resize', update)
     }
   }, [skyRef.current])
+
+  // Focus the date input and pre-select the day (DD) segment for quick typing
+  function focusDateDay(){
+    const el = dateInputRef.current
+    if (!el) return
+    el.focus()
+    try {
+      const val = el.value || '0000-00-00'
+      const lastHyphen = val.lastIndexOf('-')
+      const dayStart = lastHyphen >= 0 ? lastHyphen + 1 : 8
+      const dayEnd = dayStart + 2
+      el.setSelectionRange?.(dayStart, dayEnd)
+    } catch {}
+  }
+
+  // On initial load (and whenever we return to hero), focus the day segment
+  useEffect(()=>{
+    if (!submitted) {
+      const id = window.setTimeout(focusDateDay, 0)
+      return ()=> window.clearTimeout(id)
+    }
+  }, [submitted])
+
+  // When enabling time picker, focus the time input and select the hour (HH)
+  useEffect(()=>{
+    if (showTimePicker){
+      const id = window.setTimeout(()=>{
+        const el = timeInputRef.current
+        if (!el) return
+        el.focus()
+        try { el.setSelectionRange?.(0, 2) } catch {}
+      }, 0)
+      return ()=> window.clearTimeout(id)
+    }
+  }, [showTimePicker])
 
   useEffect(()=>{
     let ignore=false
@@ -927,8 +964,16 @@ export default function App(){
       'אור הירח הוא בעצם אור שמש שמוחזר ממנו.',
       'ליקוי ירח מלא צובע את הירח באדום נחושת!',
     ]
-    const idx = Math.floor(Math.random()*pool.length)
-    setFunFact(pool[idx])
+    if (!pool.length) return
+    let next = pool[Math.floor(Math.random()*pool.length)]
+    if (pool.length > 1){
+      let attempts = 0
+      while (next === funFact && attempts < 5){
+        next = pool[Math.floor(Math.random()*pool.length)]
+        attempts++
+      }
+    }
+    setFunFact(next)
   }
 
   function stageSentenceForDay(day:number): string{
@@ -990,6 +1035,8 @@ export default function App(){
     iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
     iconTimerRef.current = null
     heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Refocus date input for immediate typing
+    focusDateDay()
   }
 
   const hebrewDay = record?.hebrew_day ? record.hebrew_day : 1
@@ -1008,6 +1055,7 @@ export default function App(){
                 style={{minWidth:140}}
                 type="time"
                 value={hour}
+                ref={timeInputRef}
                 onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
                 disabled={isLoading}
               />
@@ -1021,6 +1069,7 @@ export default function App(){
               min="1948-01-01"
               max="2030-01-01"
               value={date}
+              ref={dateInputRef}
               onChange={e=>{ const v=e.target.value; if (v) { setDate(v); setSubmitted(false) } }}
               onBlur={e=>{
                 const raw = (e.target as HTMLInputElement).value.trim()
@@ -1242,7 +1291,7 @@ export default function App(){
             </div>
             <div className="overlay-right">
               <div className="facts">
-                <div className="facts-title">הידעת?</div>
+                <div className="facts-title" onClick={pickRandomFact} style={{cursor:'pointer'}} title="לחצו כדי לראות עובדה נוספת">הידעת?</div>
                 <div className="facts-text">{funFact}</div>
               </div>
             </div>
