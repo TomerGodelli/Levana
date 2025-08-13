@@ -609,7 +609,35 @@ body {
 @keyframes floatUp { 0% { transform: translateY(0); opacity: 0.2; } 40% { opacity: 1; } 100% { transform: translateY(-16px); opacity: 0.1; } }
 
 .hebrew { font-size: 22px; text-align: center; }
-.hidden { display: none; }
+.hidden { display: none !important; }
+
+/* Ensure container doesn't cause layout issues */
+.container { 
+  width: 100%; 
+  min-height: 100vh; 
+  padding: 0; 
+  margin: 0;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Force sky screen to always start at viewport top in landscape */
+/* Use multiple detection methods for Android compatibility */
+@media (max-width: 767px) and (orientation: landscape),
+       (max-width: 767px) and (max-aspect-ratio: 4/3) and (min-aspect-ratio: 1/1),
+       (max-height: 500px) and (min-width: 600px) and (max-width: 1000px) {
+  .container {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  
+  /* Ensure the sky + controls section takes full viewport */
+  .container > div:not(.hidden) {
+    height: 100vh !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+}
 
 /* General landscape fixes for screen transitions */
 /* Removed conflicting general landscape rules */
@@ -765,6 +793,8 @@ body {
     min-height: clamp(300px, 65vh, 450px);
     max-height: 70vh;
   }
+  
+  /* REMOVED - consolidating all landscape rules below */
 }
 
 /* Tablet Portrait (768px to 1023px) */
@@ -925,40 +955,51 @@ body {
   }
 }
 
-/* Mobile Landscape - Back to working version */
-@media (max-width: 767px) and (orientation: landscape) {
+/* Mobile Landscape - Split screen approach like portrait */
+/* Use aspect ratio detection for better Android compatibility */
+@media (max-width: 767px) and (orientation: landscape),
+       (max-width: 767px) and (max-aspect-ratio: 4/3) and (min-aspect-ratio: 1/1),
+       (max-height: 500px) and (min-width: 600px) and (max-width: 1000px) {
   :root {
-    --footer-height: 150px;
+    --footer-height: 30vh; /* Use 30% of viewport height for controls */
   }
   
   .sky {
-    height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
-    min-height: 200px;
-    max-height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    height: 70vh !important; /* Sky gets exactly 70% of screen - force override */
+    min-height: 70vh !important; /* Override the 300px minimum that's breaking layout */
+    max-height: 70vh !important;
+    /* Debug: Add visible border to confirm size */
+    border: 3px solid red !important;
+    box-sizing: border-box !important;
   }
   
   .overlay-controls {
-    height: calc(var(--footer-height) + var(--safe-area-bottom));
-    background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.7));
-    z-index: 1000;
+    height: 30vh !important; /* Controls get exactly 30% of screen */
+    /* Use same background as portrait since it works */
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100vw;
+    z-index: 1000;
+    /* Debug: Visible background and border to confirm size and position */
+    background: linear-gradient(180deg, rgba(255,0,0,0.7), rgba(0,255,0,0.7)) !important;
+    border: 3px solid blue !important;
+    box-sizing: border-box !important;
   }
   
   .overlay-grid {
-    grid-template-columns: 20% 60% 20%;
+    grid-template-columns: auto 1fr auto; /* Flexible middle section like portrait */
     grid-template-rows: 1fr;
-    height: calc(var(--footer-height) - 20px);
-    min-height: 130px;
-    gap: 6px;
-    padding: 0 8px;
+    height: calc(30vh - 10px); /* Use viewport height - padding */
+    min-height: 80px; /* Reasonable minimum for 30vh */
+    gap: 6px; /* Normal gap since we have 30% of screen */
+    padding: 0 8px; /* Normal padding */
     width: 100%;
     max-width: 100vw;
     box-sizing: border-box;
-    overflow: hidden;
+    align-items: center;
+    justify-items: stretch;
   }
   
   .overlay-left, .overlay-center, .overlay-right {
@@ -979,58 +1020,66 @@ body {
   }
   
   .facts {
-    font-size: 9px;
-    padding: 0;
-    line-height: 1.1;
+    font-size: 10px; /* Normal compact text since we have 30vh */
+    padding: 3px 6px; /* Normal padding */
+    line-height: 1.2;
     width: 100%;
     max-width: 100%;
+    background: rgba(7,12,27,0.4);
+    border-radius: 6px;
+    color: #f1f5f9;
+    /* Allow some wrapping since we have more space */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Allow max 2 lines */
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   
   .facts-text {
-    font-size: 9px;
-    line-height: 1.1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 10px;
+    line-height: 1.2;
     max-width: 100%;
+    margin-top: 2px;
+    /* Allow text wrapping with line limit */
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   
   .time-badge {
-    font-size: 12px;
+    font-size: 13px; /* Normal size for 30vh */
     padding: 4px 8px;
   }
   
   .slider {
-    height: 4px;
+    height: 5px; /* Normal thickness for easier use */
     width: 100%;
     max-width: 100%;
   }
   
   .slider::-webkit-slider-thumb {
-    width: 14px;
-    height: 14px;
-    margin-top: -5px;
+    width: 16px; /* Normal thumb size */
+    height: 16px;
+    margin-top: -6px;
   }
   
   .hand-hint-text {
-    font-size: 8px;
+    font-size: 9px; /* Readable text */
     max-width: 90%;
   }
   
   .hand-hint-row {
-    height: 16px;
+    height: 20px; /* Normal space for hints */
   }
   
   .hand-hint .icon {
-    height: 16px;
+    height: 16px; /* Normal icon size */
   }
   
   .button {
-    font-size: 12px;
-    padding: 6px 10px;
+    font-size: 12px; /* Readable button text */
+    padding: 6px 10px; /* Normal touch targets */
   }
   
   /* Hero adjustments for landscape mobile - optimized for fit */
@@ -1094,4 +1143,54 @@ body {
     height: 15%;
     width: 40%;
   }
+}
+
+/* ========== JAVASCRIPT-BASED LANDSCAPE DETECTION FALLBACK ========== */
+/* For Android devices where CSS media queries fail to detect landscape */
+html.js-landscape .sky {
+  height: 70vh !important;
+  min-height: 70vh !important;
+  max-height: 70vh !important;
+  /* Debug: Red border to confirm detection */
+  border: 3px solid red !important;
+  box-sizing: border-box !important;
+}
+
+html.js-landscape .overlay-controls {
+  height: 30vh !important;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100vw;
+  z-index: 1000;
+  /* Debug: Gradient background to confirm detection */
+  background: linear-gradient(180deg, rgba(255,0,0,0.7), rgba(0,255,0,0.7)) !important;
+  border: 3px solid blue !important;
+  box-sizing: border-box !important;
+}
+
+html.js-landscape .overlay-grid {
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: 1fr;
+  height: calc(30vh - 10px);
+  min-height: 80px;
+  gap: 6px;
+  padding: 0 8px;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  align-items: center;
+  justify-items: stretch;
+}
+
+html.js-landscape .container {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+html.js-landscape .container > div:not(.hidden) {
+  height: 100vh !important;
+  overflow: hidden !important;
+  position: relative !important;
 } 

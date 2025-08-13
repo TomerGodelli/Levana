@@ -754,6 +754,7 @@ export default function App(){
   const dateInputRef = useRef<HTMLInputElement|null>(null)
   const timeInputRef = useRef<HTMLInputElement|null>(null)
   const [skySize, setSkySize] = useState<{width:number;height:number}>({width: 900, height: 360})
+  const [isLandscape, setIsLandscape] = useState(false)
 
   // Single source of truth for [A, B] based on yearData/date and hour vs sunset(D)
   const abWindow = useMemo(()=>{
@@ -785,18 +786,51 @@ export default function App(){
   }, [yearData, date, record, showTimePicker, hour])
 
   const activeHebrewRecord = abWindow.B
+  // Enhanced orientation and size detection for Android compatibility
   useEffect(()=>{
     if (!skyRef.current) return
     const el = skyRef.current
     const update = () => {
       const rect = el.getBoundingClientRect()
       setSkySize({ width: rect.width || 900, height: rect.height || 360 })
+      
+      // Multi-method landscape detection for Android compatibility
+      const windowWidth = window.innerWidth
+      const windowHeight = window.innerHeight
+      const aspectRatio = windowWidth / windowHeight
+      
+      const isLandscapeByOrientation = window.orientation === 90 || window.orientation === -90
+      const isLandscapeByDimensions = windowWidth > windowHeight
+      const isLandscapeByAspectRatio = aspectRatio > 1.0
+      const isMobileSize = Math.max(windowWidth, windowHeight) <= 1000 && Math.min(windowWidth, windowHeight) <= 767
+      
+      const detectedLandscape = isMobileSize && (isLandscapeByOrientation || isLandscapeByDimensions || isLandscapeByAspectRatio)
+      setIsLandscape(detectedLandscape)
+      
+      // Apply landscape class to document for CSS targeting
+      if (detectedLandscape) {
+        document.documentElement.classList.add('js-landscape')
+        document.documentElement.classList.remove('js-portrait')
+      } else {
+        document.documentElement.classList.add('js-portrait') 
+        document.documentElement.classList.remove('js-landscape')
+      }
     }
+    
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
     window.addEventListener('orientationchange', update)
     window.addEventListener('resize', update)
+    
+    // Also listen for orientation change events
+    if ('onorientationchange' in window) {
+      window.addEventListener('orientationchange', () => {
+        // Delay update to allow orientation change to complete
+        setTimeout(update, 100)
+      })
+    }
+    
     return ()=>{
       ro.disconnect()
       window.removeEventListener('orientationchange', update)
@@ -1056,6 +1090,8 @@ export default function App(){
     }
     slideRafRef.current && cancelAnimationFrame(slideRafRef.current)
     slideRafRef.current = requestAnimationFrame(animateSlide)
+    // Ensure we're at the top of the viewport for landscape mode
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     skyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     return ()=>{
       hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
@@ -1195,6 +1231,8 @@ export default function App(){
     setThumbLeftPct(0)
     iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
     iconTimerRef.current = null
+    // Ensure we're at the top of the viewport  
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     // Refocus date input for immediate typing
     focusDateDay()
