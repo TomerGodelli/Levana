@@ -853,6 +853,31 @@ export default function App(){
     }
   }
 
+  // Fix real viewport height for mobile devices
+  useEffect(() => {
+    const updateRealViewport = () => {
+      // Get the actual viewport height (excluding address bars, etc.)
+      const vh = window.innerHeight * 0.01
+      const fullVh = window.innerHeight
+      
+      // Set CSS custom properties for real viewport height
+      document.documentElement.style.setProperty('--real-vh', `${vh}px`)
+      document.documentElement.style.setProperty('--real-100vh', `${fullVh}px`)
+    }
+    
+    updateRealViewport()
+    window.addEventListener('resize', updateRealViewport)
+    window.addEventListener('orientationchange', () => {
+      // Delay to let orientation change complete
+      setTimeout(updateRealViewport, 250)
+    })
+    
+    return () => {
+      window.removeEventListener('resize', updateRealViewport)
+      window.removeEventListener('orientationchange', updateRealViewport)
+    }
+  }, [])
+
   // Enhanced orientation and size detection for Android compatibility
   useEffect(()=>{
     if (!skyRef.current) return

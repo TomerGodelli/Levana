@@ -19,6 +19,10 @@
   --footer-height-mobile: 180px;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-top: env(safe-area-inset-top, 0px);
+  
+  /* Real viewport height for mobile devices (set by JavaScript) */
+  --real-vh: 1vh;
+  --real-100vh: 100vh;
 }
 
 /* Global */
@@ -646,13 +650,13 @@ body {
        (max-width: 767px) and (max-aspect-ratio: 4/3) and (min-aspect-ratio: 1/1),
        (max-height: 500px) and (min-width: 600px) and (max-width: 1000px) {
   .container {
-    height: 100vh !important;
+    height: var(--real-100vh) !important;
     overflow: hidden !important;
   }
   
   /* Ensure the sky + controls section takes full viewport */
   .container > div:not(.hidden) {
-    height: 100vh !important;
+    height: var(--real-100vh) !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -932,9 +936,9 @@ body {
   }
   
   .sky {
-    height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    height: calc(var(--real-100vh) - var(--footer-height) - var(--safe-area-bottom));
     min-height: 300px; /* Fixed minimum to avoid device variance */
-    max-height: calc(100vh - var(--footer-height) - var(--safe-area-bottom));
+    max-height: calc(var(--real-100vh) - var(--footer-height) - var(--safe-area-bottom));
   }
   
   .overlay-controls {
@@ -984,14 +988,14 @@ body {
   }
   
   .sky {
-    height: 70vh !important; /* Sky gets exactly 70% of screen - force override */
-    min-height: 70vh !important; /* Override the 300px minimum that's breaking layout */
-    max-height: 70vh !important;
+    height: calc(var(--real-100vh) * 0.7) !important; /* Sky gets exactly 70% of real screen height */
+    min-height: calc(var(--real-100vh) * 0.7) !important; /* Override the 300px minimum that's breaking layout */
+    max-height: calc(var(--real-100vh) * 0.7) !important;
     box-sizing: border-box !important;
   }
   
   .overlay-controls {
-    height: 30vh !important; /* Controls get exactly 30% of screen */
+    height: calc(var(--real-100vh) * 0.3) !important; /* Controls get exactly 30% of real screen height */
     /* Use same background as portrait since it works */
     position: fixed;
     bottom: 0;
@@ -1006,7 +1010,7 @@ body {
   .overlay-grid {
     grid-template-columns: auto 1fr auto; /* Flexible middle section like portrait */
     grid-template-rows: 1fr;
-    height: calc(30vh - 10px); /* Use viewport height - padding */
+    height: calc(var(--real-100vh) * 0.3 - 10px); /* Use real viewport height - padding */
     min-height: 80px; /* Reasonable minimum for 30vh */
     gap: 6px; /* Normal gap since we have 30% of screen */
     padding: 0 8px; /* Normal padding */
@@ -1163,14 +1167,14 @@ body {
 /* ========== JAVASCRIPT-BASED LANDSCAPE DETECTION FALLBACK ========== */
 /* For Android devices where CSS media queries fail to detect landscape */
 html.js-landscape .sky {
-  height: 70vh !important;
-  min-height: 70vh !important;
-  max-height: 70vh !important;
+  height: calc(var(--real-100vh) * 0.7) !important;
+  min-height: calc(var(--real-100vh) * 0.7) !important;
+  max-height: calc(var(--real-100vh) * 0.7) !important;
   box-sizing: border-box !important;
 }
 
 html.js-landscape .overlay-controls {
-  height: 30vh !important;
+  height: calc(var(--real-100vh) * 0.3) !important;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -1184,7 +1188,7 @@ html.js-landscape .overlay-controls {
 html.js-landscape .overlay-grid {
   grid-template-columns: auto 1fr auto;
   grid-template-rows: 1fr;
-  height: calc(30vh - 10px);
+  height: calc(var(--real-100vh) * 0.3 - 10px);
   min-height: 80px;
   gap: 6px;
   padding: 0 8px;
@@ -1196,12 +1200,12 @@ html.js-landscape .overlay-grid {
 }
 
 html.js-landscape .container {
-  height: 100vh !important;
+  height: var(--real-100vh) !important;
   overflow: hidden !important;
 }
 
 html.js-landscape .container > div:not(.hidden) {
-  height: 100vh !important;
+  height: var(--real-100vh) !important;
   overflow: hidden !important;
   position: relative !important;
 } 
