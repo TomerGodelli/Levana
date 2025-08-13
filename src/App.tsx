@@ -737,6 +737,7 @@ export default function App(){
   const rafRef = useRef<number | null>(null)
 
   const [yearData, setYearData] = useState<YearData | null>(null)
+  const [yearCache, setYearCache] = useState<Map<number, YearData>>(new Map())
   const [record, setRecord] = useState<DayRecord | null>(null)
   const [prevRecord, setPrevRecord] = useState<DayRecord | null>(null)
   const [nextRecord, setNextRecord] = useState<DayRecord | null>(null)
@@ -788,6 +789,53 @@ export default function App(){
   }, [yearData, date, record, showTimePicker, hour])
 
   const activeHebrewRecord = abWindow.B
+  
+  // Year data cache and preloading system
+  const loadYearData = async (targetYear: number): Promise<YearData | null> => {
+    try {
+      const res = await fetch(`${import.meta.env['BASE_URL']}data/dates/${targetYear}.json`)
+      if (!res.ok) return null
+      const data = await res.json() as YearData
+      
+      // Cache the loaded data
+      setYearCache(prev => new Map(prev).set(targetYear, data))
+      
+      return data
+    } catch (error) {
+      console.warn(`Failed to load year ${targetYear}:`, error)
+      return null
+    }
+  }
+
+  // Background preloading of all years (non-blocking)
+  useEffect(() => {
+    const availableYears = Array.from({length: 82}, (_, i) => 1948 + i) // 1948-2029
+    
+    const preloadYears = async () => {
+      // Load current year first for immediate UX
+      if (!yearCache.has(year)) {
+        await loadYearData(year)
+      }
+      
+      // Then start with most common years (around current date and default 1969)
+      const priorityYears = [2024, 2023, 2025, 1969, 1970, 1968, 2022, 2026]
+      const otherYears = availableYears.filter(y => !priorityYears.includes(y) && y !== year)
+      const allYears = [year, ...priorityYears.filter(y => y !== year), ...otherYears]
+      
+      for (const targetYear of allYears) {
+        // Skip if already cached
+        if (yearCache.has(targetYear)) continue
+        
+        // Small delay between requests to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 50))
+        await loadYearData(targetYear)
+      }
+    }
+    
+    // Start preloading immediately
+    preloadYears()
+  }, [year]) // Re-run when year changes to prioritize new year
+
   // Handle east label clicks for debug mode (hidden easter egg)
   const handleEastLabelClick = () => {
     // Don't do anything if debug mode is already active - users shouldn't know they can click to close
@@ -892,19 +940,38 @@ export default function App(){
     }
   }, [showTimePicker])
 
-  useEffect(()=>{
-    let ignore=false
-    async function load(){
-      setLoading(true)
-      try{
-        const res = await fetch(`${import.meta.env['BASE_URL']}data/dates/${year}.json`)
-        const json = await res.json() as YearData
-        if (!ignore) setYearData(json)
-      } finally { setLoading(false) }
+  // Watch for cache updates and immediately set data if available
+  useEffect(() => {
+    const cached = yearCache.get(year)
+    if (cached) {
+      setYearData(cached)
+      setLoading(false)
     }
-    load()
-    return ()=>{ ignore=true }
-  },[year])
+  }, [year, yearCache])
+
+  // Load year data if not in cache
+  useEffect(() => {
+    let ignore = false
+    
+    const loadYear = async () => {
+      // Skip if already in cache
+      if (yearCache.has(year)) return
+      
+      // Load it
+      setLoading(true)
+      try {
+        const data = await loadYearData(year)
+        if (!ignore && data) {
+          setYearData(data)
+        }
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+    
+    loadYear()
+    return () => { ignore = true }
+  }, [year])
 
   useEffect(()=>{
     if (!yearData) return
@@ -1439,6 +1506,10 @@ export default function App(){
                   </div>
                   <div style={{marginTop: '4px', fontSize: '10px', whiteSpace: 'pre-line'}}>
                     {reason}
+                  </div>
+                  <div style={{marginTop: '8px', fontSize: '10px', color: '#00ff88'}}>
+                    Cache: {yearCache.size}/82 years loaded
+                    {yearCache.has(year) ? ` | ${year} ✓` : ` | ${year} loading...`}
                   </div>
                 </>
               )
