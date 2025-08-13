@@ -755,6 +755,8 @@ export default function App(){
   const timeInputRef = useRef<HTMLInputElement|null>(null)
   const [skySize, setSkySize] = useState<{width:number;height:number}>({width: 900, height: 360})
   const [isLandscape, setIsLandscape] = useState(false)
+  const [eastClickCount, setEastClickCount] = useState(0)
+  const [showDebugMode, setShowDebugMode] = useState(false)
 
   // Single source of truth for [A, B] based on yearData/date and hour vs sunset(D)
   const abWindow = useMemo(()=>{
@@ -786,6 +788,23 @@ export default function App(){
   }, [yearData, date, record, showTimePicker, hour])
 
   const activeHebrewRecord = abWindow.B
+  // Handle east label clicks for debug mode (hidden easter egg)
+  const handleEastLabelClick = () => {
+    // Don't do anything if debug mode is already active - users shouldn't know they can click to close
+    if (showDebugMode) {
+      return
+    }
+    
+    const newCount = eastClickCount + 1
+    setEastClickCount(newCount)
+    
+    if (newCount >= 10) {
+      setShowDebugMode(true)
+      // Reset counter after activating debug mode
+      setEastClickCount(0)
+    }
+  }
+
   // Enhanced orientation and size detection for Android compatibility
   useEffect(()=>{
     if (!skyRef.current) return
@@ -1341,7 +1360,8 @@ export default function App(){
 
       <div className={submitted ? '' : 'hidden'}>
         <div ref={skyRef} className={`sky ${mode}`} style={sky}>
-          {/* Debug screen mode info */}
+          {/* Debug screen mode info - only show when debug mode is activated */}
+          {showDebugMode && (
           <div className="debug-screen-mode" style={{
             position: 'absolute',
             top: '10px',
@@ -1355,8 +1375,24 @@ export default function App(){
             lineHeight: '1.4',
             zIndex: 15,
             maxWidth: '300px',
-            direction: 'ltr'
+            direction: 'ltr',
+            border: '1px solid #00ff00'
           }}>
+            <div style={{
+              position: 'absolute',
+              top: '2px',
+              right: '6px',
+              cursor: 'pointer',
+              color: '#ff0000',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              lineHeight: '1'
+            }}
+            onClick={() => setShowDebugMode(false)}
+            title="Close debug mode"
+            >
+              ×
+            </div>
             {(() => {
               if (typeof window === 'undefined') {
                 return <div>Debug info loading...</div>
@@ -1408,6 +1444,7 @@ export default function App(){
               )
             })()}
           </div>
+          )}
           <div className="overlay-top">
             <div className="overlay-top-inner">
               {/* Hour moved below to slider area */}
@@ -1502,6 +1539,27 @@ export default function App(){
           {/* East/West labels anchored inside the sky canvas */}
           <div className="west-label">מערב</div>
           <div className="east-label">מזרח</div>
+          {/* Invisible click area over east label for debug mode - completely hidden from users */}
+          <div 
+            onClick={handleEastLabelClick}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: 'clamp(10px, 5vw, 60px)',
+              transform: 'translateY(-50%)',
+              padding: 'clamp(4px, 1vw, 6px) clamp(8px, 2vw, 12px)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'default',
+              zIndex: 11,
+              fontSize: 'clamp(12px, 3vw, 16px)',
+              color: 'transparent',
+              userSelect: 'none'
+            }}
+            aria-hidden="true"
+          >
+            מזרח
+          </div>
           {(
             <div className={`illum-label ${hintActive ? 'show' : ''}`}>
               {(() => {

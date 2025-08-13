@@ -365,7 +365,7 @@ body {
   background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.4)); 
   z-index: 20; /* Higher z-index for consistency */
   box-sizing: border-box; 
-  overflow: visible; /* Allow content to be visible */
+  overflow: hidden; /* Prevent content from overflowing above container */
   /* Ensure proper rendering on all devices */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
@@ -419,8 +419,11 @@ body {
   padding: clamp(4px, 1vw, 6px) clamp(8px, 2vw, 10px); 
   border-radius: 12px; 
   font-weight: 700; 
-  margin-bottom: clamp(3px, 1vw, 6px);
+  margin-bottom: clamp(2px, 0.5vw, 4px); /* Reduced margin to prevent overflow */
   font-size: clamp(14px, 3.5vw, 18px);
+  /* Ensure time badge never overflows */
+  flex-shrink: 0;
+  max-width: 100%;
 }
 .slider { 
   width: 100%; 
