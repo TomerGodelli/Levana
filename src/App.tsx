@@ -527,7 +527,67 @@ function MoonPhasePath({ illumination, waxing, hebrewDay, idSuffix, disableTilt 
   if (illumination >= 0.999) {
     return (
       <svg width={80} height={80} viewBox="0 0 80 80" aria-label="ירח מלא">
-        <circle cx={cx} cy={cy} r={R} fill="#e2e8f0" />
+        <defs>
+          <radialGradient id={`glowFull${idSuffix ?? ''}`} cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#e2e8f0" stopOpacity="0.9" />
+          </radialGradient>
+          {/* Soft vignette for full moon */}
+          <radialGradient id={`texGradFull${idSuffix ?? ''}`} cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0.0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.08" />
+          </radialGradient>
+        </defs>
+        <circle cx={cx} cy={cy} r={R} fill={`url(#glowFull${idSuffix ?? ''})`} />
+        {/* Full moon craters - not clipped since entire moon is visible */}
+        <g>
+          {/* Vignette */}
+          <circle cx={cx} cy={cy} r={R} fill={`url(#texGradFull${idSuffix ?? ''})`} />
+          {/* Craters */}
+          <g fill="#cbd5e1" opacity="0.3">
+            {/* Top area craters */}
+            <circle cx="35" cy="15" r="2.4" />
+            <circle cx="50" cy="18" r="1.6" />
+            <circle cx="25" cy="20" r="1.8" />
+            <circle cx="42" cy="12" r="1.4" />
+            <circle cx="60" cy="15" r="1.2" />
+            {/* Upper-middle area */}
+            <circle cx="18" cy="28" r="3.2" />
+            <circle cx="62" cy="25" r="2.8" />
+            <circle cx="45" cy="28" r="1.8" />
+            <circle cx="32" cy="22" r="1.5" />
+            <circle cx="68" cy="32" r="1.6" />
+            {/* Middle area (main large craters) */}
+            <circle cx="28" cy="38" r="4.2" />
+            <circle cx="55" cy="35" r="3.8" />
+            <circle cx="40" cy="42" r="2.6" />
+            <circle cx="15" cy="45" r="2.4" />
+            <circle cx="65" cy="40" r="2.0" />
+            {/* Lower-middle area */}
+            <circle cx="22" cy="48" r="2.2" />
+            <circle cx="58" cy="48" r="2.8" />
+            <circle cx="38" cy="55" r="1.8" />
+            <circle cx="45" cy="52" r="1.4" />
+            <circle cx="28" cy="58" r="1.6" />
+            {/* Bottom area craters */}
+            <circle cx="32" cy="62" r="2.0" />
+            <circle cx="48" cy="60" r="1.6" />
+            <circle cx="55" cy="65" r="1.3" />
+            <circle cx="40" cy="68" r="1.5" />
+            {/* Edge craters */}
+            <circle cx="12" cy="40" r="1.8" />
+            <circle cx="70" cy="50" r="1.4" />
+            <circle cx="10" cy="25" r="1.2" />
+          </g>
+          {/* Inner shadows on some craters for depth */}
+          <g stroke="#94a3b8" strokeOpacity="0.3" fill="none">
+            <circle cx="18" cy="28" r="2.8" />
+            <circle cx="28" cy="38" r="3.8" />
+            <circle cx="55" cy="35" r="3.4" />
+            <circle cx="15" cy="45" r="2.0" />
+            <circle cx="58" cy="48" r="2.4" />
+          </g>
+        </g>
       </svg>
     )
   }
@@ -580,28 +640,47 @@ function MoonPhasePath({ illumination, waxing, hebrewDay, idSuffix, disableTilt 
         <rect x="0" y="0" width="80" height="80" fill={`url(#texGrad${idSuffix ?? ''})`} />
         {/* Craters */}
         <g fill="#cbd5e1" opacity="0.3">
-          <circle cx="28" cy="36" r="3.6" />
-          <circle cx="34" cy="30" r="1.8" />
-          <circle cx="46" cy="34" r="2.8" />
-          <circle cx="52" cy="42" r="2.2" />
-          <circle cx="38" cy="46" r="1.8" />
-          <circle cx="44" cy="26" r="1.6" />
-          {/* additional larger craters */}
-          <circle cx="32" cy="44" r="4.2" />
-          <circle cx="48" cy="28" r="3.8" />
-          <circle cx="56" cy="36" r="3.4" />
-          <circle cx="40" cy="40" r="2.6" />
-          <circle cx="24" cy="32" r="2.4" />
-          <circle cx="50" cy="46" r="2.8" />
-          <circle cx="60" cy="30" r="2.2" />
-          <circle cx="36" cy="24" r="1.8" />
-          <circle cx="30" cy="50" r="2.0" />
+          {/* Top area craters */}
+          <circle cx="35" cy="15" r="2.4" />
+          <circle cx="50" cy="18" r="1.6" />
+          <circle cx="25" cy="20" r="1.8" />
+          <circle cx="42" cy="12" r="1.4" />
+          <circle cx="60" cy="15" r="1.2" />
+          {/* Upper-middle area */}
+          <circle cx="18" cy="28" r="3.2" />
+          <circle cx="62" cy="25" r="2.8" />
+          <circle cx="45" cy="28" r="1.8" />
+          <circle cx="32" cy="22" r="1.5" />
+          <circle cx="68" cy="32" r="1.6" />
+          {/* Middle area (main large craters) */}
+          <circle cx="28" cy="38" r="4.2" />
+          <circle cx="55" cy="35" r="3.8" />
+          <circle cx="40" cy="42" r="2.6" />
+          <circle cx="15" cy="45" r="2.4" />
+          <circle cx="65" cy="40" r="2.0" />
+          {/* Lower-middle area */}
+          <circle cx="22" cy="48" r="2.2" />
+          <circle cx="58" cy="48" r="2.8" />
+          <circle cx="38" cy="55" r="1.8" />
+          <circle cx="45" cy="52" r="1.4" />
+          <circle cx="28" cy="58" r="1.6" />
+          {/* Bottom area craters */}
+          <circle cx="32" cy="62" r="2.0" />
+          <circle cx="48" cy="60" r="1.6" />
+          <circle cx="55" cy="65" r="1.3" />
+          <circle cx="40" cy="68" r="1.5" />
+          {/* Edge craters */}
+          <circle cx="12" cy="40" r="1.8" />
+          <circle cx="70" cy="50" r="1.4" />
+          <circle cx="10" cy="25" r="1.2" />
         </g>
         {/* Inner shadows on some craters for depth */}
         <g stroke="#94a3b8" strokeOpacity="0.3" fill="none">
-          <circle cx="28" cy="36" r="3.2" />
-          <circle cx="46" cy="34" r="2.2" />
-          <circle cx="52" cy="42" r="1.8" />
+          <circle cx="18" cy="28" r="2.8" />
+          <circle cx="28" cy="38" r="3.8" />
+          <circle cx="55" cy="35" r="3.4" />
+          <circle cx="15" cy="45" r="2.0" />
+          <circle cx="58" cy="48" r="2.4" />
         </g>
       </g>
     </svg>
@@ -1673,7 +1752,18 @@ export default function App(){
             <div className={`illum-label ${hintActive ? 'show' : ''}`}>
               {(() => {
                 const illum = Math.round(((activeHebrewRecord?.moon.illumination ?? 0) * 100))
-                return `ביום שנולדת לבנה הייתה מוארת ב${illum}%`
+                const hebrewDay = activeHebrewRecord?.hebrew_day
+                
+                if (hebrewDay === 1) {
+                  // Rosh Chodesh - first day of Hebrew month
+                  return `נולדת בראש חודש! ביום זה לבנה מוארת רק ב${illum}%`
+                } else if (hebrewDay === 15) {
+                  // Tu (15th) - full moon
+                  return `ביום שנולדת הירח היה מלא!`
+                } else {
+                  // Default message
+                  return `ביום שנולדת לבנה הייתה מוארת ב${illum}%`
+                }
               })()}
             </div>
           )}
@@ -1786,8 +1876,7 @@ export default function App(){
                       }
                       const pct = maxVal>0 ? (v/maxVal) : 0
                       setThumbLeftPct(Math.max(0, Math.min(1, pct))*100)
-                      // On user interaction: fade-out illumination label (2s via CSS transition) and hide hand hint
-                      if (hintActive) setHintActive(false)
+                      // On user interaction: hide hand hint (but keep illumination label visible)
                       if (showHints) setShowHints(false)
                       setUserInteractedWithSlider(true)
                     }}/>
