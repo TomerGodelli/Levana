@@ -611,6 +611,22 @@ body {
 .hebrew { font-size: 22px; text-align: center; }
 .hidden { display: none !important; }
 
+/* Debug screen mode info */
+.debug-screen-mode {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  pointer-events: auto !important;
+}
+
+/* Hide debug info on very small screens to avoid clutter */
+@media (max-width: 480px) and (max-height: 400px) {
+  .debug-screen-mode {
+    font-size: 10px !important;
+    padding: 4px 6px !important;
+    max-width: 200px !important;
+  }
+}
+
 /* Ensure container doesn't cause layout issues */
 .container { 
   width: 100%; 
@@ -968,8 +984,6 @@ body {
     height: 70vh !important; /* Sky gets exactly 70% of screen - force override */
     min-height: 70vh !important; /* Override the 300px minimum that's breaking layout */
     max-height: 70vh !important;
-    /* Debug: Add visible border to confirm size */
-    border: 3px solid red !important;
     box-sizing: border-box !important;
   }
   
@@ -982,9 +996,7 @@ body {
     right: 0;
     width: 100vw;
     z-index: 1000;
-    /* Debug: Visible background and border to confirm size and position */
-    background: linear-gradient(180deg, rgba(255,0,0,0.7), rgba(0,255,0,0.7)) !important;
-    border: 3px solid blue !important;
+    background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.4));
     box-sizing: border-box !important;
   }
   
@@ -1151,8 +1163,6 @@ html.js-landscape .sky {
   height: 70vh !important;
   min-height: 70vh !important;
   max-height: 70vh !important;
-  /* Debug: Red border to confirm detection */
-  border: 3px solid red !important;
   box-sizing: border-box !important;
 }
 
@@ -1164,9 +1174,7 @@ html.js-landscape .overlay-controls {
   right: 0;
   width: 100vw;
   z-index: 1000;
-  /* Debug: Gradient background to confirm detection */
-  background: linear-gradient(180deg, rgba(255,0,0,0.7), rgba(0,255,0,0.7)) !important;
-  border: 3px solid blue !important;
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.4));
   box-sizing: border-box !important;
 }
 

@@ -1341,6 +1341,73 @@ export default function App(){
 
       <div className={submitted ? '' : 'hidden'}>
         <div ref={skyRef} className={`sky ${mode}`} style={sky}>
+          {/* Debug screen mode info */}
+          <div className="debug-screen-mode" style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            background: 'rgba(0,0,0,0.8)',
+            color: '#00ff00',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            lineHeight: '1.4',
+            zIndex: 15,
+            maxWidth: '300px',
+            direction: 'ltr'
+          }}>
+            {(() => {
+              if (typeof window === 'undefined') {
+                return <div>Debug info loading...</div>
+              }
+              
+              const windowWidth = window.innerWidth
+              const windowHeight = window.innerHeight
+              const aspectRatio = windowWidth / windowHeight
+              const orientation = (window.orientation === 90 || window.orientation === -90 ? 'landscape' : 'portrait')
+              
+              const isLandscapeByOrientation = window.orientation === 90 || window.orientation === -90
+              const isLandscapeByDimensions = windowWidth > windowHeight
+              const isLandscapeByAspectRatio = aspectRatio > 1.0
+              const isMobileSize = Math.max(windowWidth, windowHeight) <= 1000 && Math.min(windowWidth, windowHeight) <= 767
+              
+              const detectedLandscape = isMobileSize && (isLandscapeByOrientation || isLandscapeByDimensions || isLandscapeByAspectRatio)
+              
+              let screenMode = 'PC/Desktop'
+              if (isMobileSize) {
+                screenMode = detectedLandscape ? 'Mobile Landscape' : 'Mobile Portrait'
+              }
+              
+              let reason = 'Reasons:\n'
+              if (isMobileSize) {
+                reason += `• Mobile size: ${windowWidth}x${windowHeight}\n`
+                if (detectedLandscape) {
+                  reason += '• Landscape detected by:\n'
+                  if (isLandscapeByOrientation) reason += '  - Device orientation\n'
+                  if (isLandscapeByDimensions) reason += '  - Width > Height\n'
+                  if (isLandscapeByAspectRatio) reason += '  - Aspect ratio > 1.0\n'
+                } else {
+                  reason += '• Portrait mode (no landscape triggers)\n'
+                }
+              } else {
+                reason += `• PC/Desktop: screen size ${windowWidth}x${windowHeight}\n`
+                reason += '• Not mobile size (max ≤ 1000, min ≤ 767)\n'
+              }
+              
+              return (
+                <>
+                  <div style={{fontWeight: 'bold', color: '#00ffff'}}>Screen Mode: {screenMode}</div>
+                  <div style={{marginTop: '4px', fontSize: '10px', color: '#ffff00'}}>
+                    Size: {windowWidth}x{windowHeight} | Ratio: {aspectRatio.toFixed(2)}
+                  </div>
+                  <div style={{marginTop: '4px', fontSize: '10px', whiteSpace: 'pre-line'}}>
+                    {reason}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
           <div className="overlay-top">
             <div className="overlay-top-inner">
               {/* Hour moved below to slider area */}
