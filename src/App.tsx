@@ -1426,7 +1426,13 @@ export default function App(){
       </div>
 
       <div className={submitted ? '' : 'hidden'}>
-        <div ref={skyRef} className={`sky ${mode}`} style={sky}>
+        <div ref={skyRef} className={`sky ${mode}`} style={{
+          ...sky,
+          ...(showDebugMode ? {
+            border: '3px solid #00ff00',
+            boxSizing: 'border-box'
+          } : {})
+        }}>
           {/* Debug screen mode info - only show when debug mode is activated */}
           {showDebugMode && (
           <div className="debug-screen-mode" style={{
@@ -1510,6 +1516,13 @@ export default function App(){
                   <div style={{marginTop: '8px', fontSize: '10px', color: '#00ff88'}}>
                     Cache: {yearCache.size}/82 years loaded
                     {yearCache.has(year) ? ` | ${year} ✓` : ` | ${year} loading...`}
+                  </div>
+                  <div style={{marginTop: '6px', fontSize: '9px', color: '#cccccc', whiteSpace: 'pre-line'}}>
+                    Debug Borders:
+                    🟢 Sky container
+                    🔴 Overlay-controls
+                    🟡 Overlay-grid
+                    🔵 Grid sections
                   </div>
                 </>
               )
@@ -1697,12 +1710,24 @@ export default function App(){
           })()}
         </div>
 
-        <div className="overlay-controls">
-          <div className="overlay-grid">
-            <div className="overlay-left" dir="ltr">
+        <div className="overlay-controls" style={showDebugMode ? {
+          border: '3px solid #ff0000',
+          boxSizing: 'border-box'
+        } : {}}>
+          <div className="overlay-grid" style={showDebugMode ? {
+            border: '2px solid #ffff00',
+            boxSizing: 'border-box'
+          } : {}}>
+            <div className="overlay-left" dir="ltr" style={showDebugMode ? {
+              border: '1px solid #00ffff',
+              boxSizing: 'border-box'
+            } : {}}>
               <button className="button" onClick={handleStartOver}>התחילו מחדש</button>
             </div>
-            <div className="overlay-center">
+            <div className="overlay-center" style={showDebugMode ? {
+              border: '1px solid #00ffff',
+              boxSizing: 'border-box'
+            } : {}}>
               <div className="time-badge">{minutesToHM(minutes)}</div>
               <div dir="ltr" style={{width:'100%'}}>
               {(() => {
@@ -1755,7 +1780,10 @@ export default function App(){
               })()}
               </div>
             </div>
-            <div className="overlay-right">
+            <div className="overlay-right" style={showDebugMode ? {
+              border: '1px solid #00ffff',
+              boxSizing: 'border-box'
+            } : {}}>
               <div className="facts">
                 <div className="facts-title" onClick={pickRandomFact} style={{cursor:'pointer'}} title="לחצו כדי לראות עובדה נוספת">הידעת?</div>
                 <div className="facts-text">{funFact}</div>
