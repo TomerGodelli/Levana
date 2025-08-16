@@ -1245,9 +1245,9 @@ export default function App(){
     // During auto-scroll with no hour: start at A, flip to B at midnight via label logic
     setOverrideGregToB(false)
     const animStart = performance.now()
-    // Dynamic auto-scroll duration: fraction * 8s, clamped to [1.5s, 5s]
+    // Dynamic auto-scroll duration: fraction * 16s, clamped to [3s, 10s] (2x slower)
     const fraction = maxSliderVal > 0 ? (targetPos / maxSliderVal) : 0
-    const animDur = Math.max(1500, Math.min(5000, 8000 * fraction))
+    const animDur = Math.max(3000, Math.min(10000, 16000 * fraction))
     // Start illumination label 2s after auto-scroll begins
     hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
     hintTimerRef.current = window.setTimeout(()=> setHintActive(true), 2000)
