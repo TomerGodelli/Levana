@@ -3,6 +3,63 @@ import type { DayRecord, YearData } from './types'
 
 const SLIDER_SLOWDOWN_FACTOR = 4
 
+// Auto-scroll speed parameters (easily configurable)
+const SUN_ONLY_SPEED = 0.67            // Speed multiplier when only sun is visible (1.5x slower)
+const MOON_PRESENT_SPEED = 0.47        // Speed multiplier when moon is visible (30% slower than sun)
+const NO_CELESTIALS_SPEED = 2.0        // Speed multiplier when no celestial bodies are visible (2x faster)
+
+// Helper function to determine celestial body visibility and return appropriate speed
+// Extended by 30 minutes before and after for smoother auto-scroll transitions
+function getCelestialScrollSpeed(
+  minutes: number, 
+  sunrise: number | null, 
+  sunset: number | null,
+  moonrise: number | null,
+  moonset: number | null
+): number {
+  const TRANSITION_BUFFER = 30 // 30 minutes before and after
+  
+  let sunVisible = false
+  let moonVisible = false
+  
+  // Check if sun is visible (with 30-minute buffer)
+  if (sunrise != null && sunset != null) {
+    const extendedSunrise = sunrise - TRANSITION_BUFFER
+    const extendedSunset = sunset + TRANSITION_BUFFER
+    
+    if (sunrise <= sunset) {
+      // Normal day (sun doesn't cross midnight)
+      if (minutes >= extendedSunrise && minutes <= extendedSunset) sunVisible = true
+    } else {
+      // Sun crosses midnight (polar regions)
+      if (minutes >= extendedSunrise || minutes <= extendedSunset) sunVisible = true
+    }
+  }
+  
+  // Check if moon is visible (with 30-minute buffer)
+  if (moonrise != null && moonset != null) {
+    const extendedMoonrise = moonrise - TRANSITION_BUFFER
+    const extendedMoonset = moonset + TRANSITION_BUFFER
+    
+    if (moonrise <= moonset) {
+      // Moon doesn't cross midnight
+      if (minutes >= extendedMoonrise && minutes <= extendedMoonset) moonVisible = true
+    } else {
+      // Moon crosses midnight
+      if (minutes >= extendedMoonrise || minutes <= extendedMoonset) moonVisible = true
+    }
+  }
+  
+  // Return speed based on visibility priority: moon present > sun only > no celestials
+  if (moonVisible) {
+    return MOON_PRESENT_SPEED  // Slowest when moon is visible
+  } else if (sunVisible) {
+    return SUN_ONLY_SPEED     // Medium speed when only sun is visible
+  } else {
+    return NO_CELESTIALS_SPEED // Fastest when no celestial bodies are visible
+  }
+}
+
 // DEBUG: simple grid for days 1–9
 function DebugMoonGrid(){
   const days = Array.from({length:31}, (_,i)=>i) // 0..30
@@ -147,11 +204,11 @@ function seaGradient(minutes:number, sunrise:number|null, sunset:number|null){
   if (sunrise==null || sunset==null){
     return `linear-gradient(180deg, ${nightTop}, ${nightBot})`
   }
-  // Sunrise background transition: sunrise − 30 → sunrise + 90
-  const dawnInStart = sunrise - 30
-  const dawnInEnd = sunrise + 90
-  const duskOutStart = sunset - 30
-  const duskOutEnd = sunset + 120
+  // Updated background transition timing
+  const dawnInStart = sunrise - 60
+  const dawnInEnd = sunrise + 30
+  const duskOutStart = sunset - 45
+  const duskOutEnd = sunset + 30
   if (minutes < dawnInStart) return `linear-gradient(180deg, ${nightTop}, ${nightBot})`
   if (minutes <= dawnInEnd){
     const t1 = clamp((minutes - dawnInStart) / (dawnInEnd - dawnInStart), 0, 1)
@@ -184,10 +241,10 @@ function mountainColors(minutes:number, sunrise:number|null, sunset:number|null)
   const day   = { top: '#f1dfc8', bot: '#c7925e', shade: '#d39a61' } // lighter day
   const dusk  = { top: '#7a4f8a', bot: '#3b2a59', shade: '#4a356a' }
   if (sunrise==null || sunset==null) return night
-  const dawnInStart = sunrise - 120
+  const dawnInStart = sunrise - 60
   const dawnInEnd = sunrise + 30
-  const duskOutStart = sunset - 30
-  const duskOutEnd = sunset + 120
+  const duskOutStart = sunset - 45
+  const duskOutEnd = sunset + 30
   if (minutes < dawnInStart) return night
   if (minutes <= dawnInEnd){
     const t1 = clamp((minutes - dawnInStart) / (dawnInEnd - dawnInStart), 0, 1)
@@ -244,11 +301,11 @@ function hebrewDayLetters(n:number): string {
 
 function skyMode(minutes:number, sunrise:number|null, sunset:number|null): 'mode-day'|'mode-dusk'|'mode-night' {
   if (sunrise==null || sunset==null) return 'mode-night'
-  const dawnStart = sunrise - 120
-  const duskEnd = sunset + 120
+  const dawnStart = sunrise - 60
+  const duskEnd = sunset + 30
   if (minutes < dawnStart || minutes > duskEnd) return 'mode-night'
-  // End day 30 minutes before sunset to enter dusk earlier on evening only
-  const eveningDayEnd = sunset - 30
+  // End day 45 minutes before sunset to match dusk transition start
+  const eveningDayEnd = sunset - 45
   if (minutes >= sunrise && minutes <= eveningDayEnd) return 'mode-day'
   return 'mode-dusk'
 }
@@ -268,11 +325,11 @@ function skyColor(
     return `linear-gradient(180deg, ${nightTop}, ${nightBot})`
   }
 
-  const dawnInStart = sunrise - 120
+  const dawnInStart = sunrise - 60
   const dawnInEnd = sunrise + 30
-  // Sunset background transition: sunset − 160 → sunset + 90
-  const duskOutStart = sunset - 160
-  const duskOutEnd = sunset + 90
+  // Updated background transition timing
+  const duskOutStart = sunset - 45
+  const duskOutEnd = sunset + 30
 
   // Helper to add a soft radial focus overlay centered at a given point
   const addFocus = (base:string, center:string|undefined|null, weight:number = 1) => {
@@ -288,9 +345,12 @@ function skyColor(
   }
   if (minutes <= dawnInEnd) {
     const t1 = clamp((minutes - dawnInStart) / (dawnInEnd - dawnInStart), 0, 1)
+    const sunCenter = centers?.dawnCenter ?? '30% 96%'
+    
     if (t1 < 0.5){
       const tt = t1 / 0.5
-      const g = mixGradient(nightTop, nightBot, dawnTop, dawnBot, tt)
+      // Create radial gradient centered at sun position for sunrise (inverted colors)
+      const g = `radial-gradient(circle at ${sunCenter}, ${mixColor(nightBot, dawnBot, tt)}, ${mixColor(nightTop, dawnTop, tt)})`
       // Focus sunrise fades in from 30 minutes before sunrise to sunrise, then stays at 1 until dawn end
       let weight = 0
       if (sunrise!=null){
@@ -301,10 +361,11 @@ function skyColor(
           weight = 1
         }
       }
-      return addFocus(g, centers?.dawnCenter ?? '30% 96%', weight)
+      return addFocus(g, sunCenter, weight)
     } else {
       const tt = (t1 - 0.5) / 0.5
-      const g = mixGradient(dawnTop, dawnBot, dayTop, dayBot, tt)
+      // Create radial gradient centered at sun position transitioning to day (inverted colors)
+      const g = `radial-gradient(circle at ${sunCenter}, ${mixColor(dawnBot, dayBot, tt)}, ${mixColor(dawnTop, dayTop, tt)})`
       let weight = 0
       if (sunrise!=null){
         const start = sunrise - 30
@@ -314,7 +375,7 @@ function skyColor(
           weight = 1
         }
       }
-      return addFocus(g, centers?.dawnCenter ?? '30% 96%', weight)
+      return addFocus(g, sunCenter, weight)
     }
   }
   if (minutes < duskOutStart) {
@@ -331,10 +392,12 @@ function skyColor(
   }
   if (minutes <= duskOutEnd) {
     const t2 = clamp((minutes - duskOutStart) / (duskOutEnd - duskOutStart), 0, 1)
+    const sunCenter = centers?.duskCenter ?? '80% 96%'
+    
     if (t2 < 0.5){
       const tt = t2 / 0.5
-      // Sunset: swap dusk colors order
-      const g = mixGradient(dayTop, dayBot, duskBot, duskTop, tt)
+      // Create radial gradient centered at sun position for sunset (inverted colors)
+      const g = `radial-gradient(circle at ${sunCenter}, ${mixColor(dayBot, duskTop, tt)}, ${mixColor(dayTop, duskBot, tt)})`
       // Focus sunset fades in from 45 minutes before sunset to sunset, then stays at 1 until dusk end
       let weight = 0
       if (sunset!=null){
@@ -345,11 +408,11 @@ function skyColor(
           weight = 1
         }
       }
-      return addFocus(g, centers?.duskCenter ?? '80% 96%', weight)
+      return addFocus(g, sunCenter, weight)
     } else {
       const tt = (t2 - 0.5) / 0.5
-      // Sunset: swap dusk colors order
-      const g = mixGradient(duskBot, duskTop, nightTop, nightBot, tt)
+      // Create radial gradient centered at sun position transitioning to night (inverted colors)
+      const g = `radial-gradient(circle at ${sunCenter}, ${mixColor(duskTop, nightBot, tt)}, ${mixColor(duskBot, nightTop, tt)})`
       let weight = 0
       if (sunset!=null){
         const start = sunset - 45
@@ -359,7 +422,7 @@ function skyColor(
           weight = 1
         }
       }
-      return addFocus(g, centers?.duskCenter ?? '80% 96%', weight)
+      return addFocus(g, sunCenter, weight)
     }
   }
   // Night base; after sunset completes, fade out focus over 30 minutes
@@ -376,11 +439,19 @@ function skyColor(
 function arcPosition(minutes:number, rise:number|null, set:number|null, width:number, height:number){
   if (rise==null || set==null) return null
   const wraps = set < rise
+  // Body is visible from rise to set (inclusive of set time)
   const isVisible = wraps ? (minutes >= rise || minutes <= set) : (minutes >= rise && minutes <= set)
   if (!isVisible) return null
+  
+  // Calculate t based on rise/set times
   const total = wraps ? (1440 - rise) + set : (set - rise)
   const elapsed = wraps ? (minutes >= rise ? (minutes - rise) : (1440 - rise) + minutes) : (minutes - rise)
-  const t = total > 0 ? Math.min(1, Math.max(0, elapsed / total)) : 0
+  let t = total > 0 ? Math.min(1, Math.max(0, elapsed / total)) : 0
+  
+  // Ensure t reaches exactly 1.0 at set time (so body reaches 95% at sunset)
+  if (minutes >= set) {
+    t = 1.0
+  }
   
   // Left-to-right (east on left → west on right)
   const cx = lerp(5, 95, t)  // Reduced padding further: 5% to 95% for maximum arc width
@@ -430,8 +501,11 @@ function arcPosition(minutes:number, rise:number|null, set:number|null, width:nu
   const maxArcHeight = Math.min(85 - topClearancePercent, arcHeightPercent)
   const clampedArcHeightPercent = Math.max(25, maxArcHeight)
   
-  // Adjust the base position to account for clearance (start arc lower)
-  const baseY = 90 + topClearancePercent * 0.3 // Move base position down slightly
+  // Calculate sea div position (bottom: 0, height: 15%) = top at 85%
+  const seaTopPercent = 85
+  
+  // Set arc baseline exactly at sea top level for proper horizon alignment
+  const baseY = seaTopPercent
   const cy = baseY - Math.sin(t * Math.PI) * clampedArcHeightPercent
   return { x: (cx/100)*width, y: (cy/100)*height }
 }
@@ -517,16 +591,22 @@ function MoonPhasePath({ illumination, waxing, hebrewDay, idSuffix, disableTilt 
     rx = Math.max(Math.round(R * 0.15), rx) // slightly thicken ultra-thin crescent for visibility
   }
 
+  // Calculate tilt and transform before early returns to ensure consistency
+  const baseTilt = 35
+  const tilt = disableTilt ? 0 : (typeof hebrewDay === 'number' ? (hebrewDay <= 15 ? baseTilt : -baseTilt) : 0)
+
   if (illumination <= 0.001) {
+    const svgTransform = disableTilt ? undefined : `rotate(${tilt}deg) scaleX(-1)`
     return (
-      <svg width={80} height={80} viewBox="0 0 80 80" aria-label="ירח חדש">
+      <svg width={80} height={80} viewBox="0 0 80 80" aria-label="ירח חדש" style={{ transform: svgTransform, transformOrigin: '50% 50%' }}>
         <circle cx={cx} cy={cy} r={R} fill="transparent" />
       </svg>
     )
   }
   if (illumination >= 0.999) {
+    const svgTransform = disableTilt ? undefined : `rotate(${tilt}deg) scaleX(-1)`
     return (
-      <svg width={80} height={80} viewBox="0 0 80 80" aria-label="ירח מלא">
+      <svg width={80} height={80} viewBox="0 0 80 80" aria-label="ירח מלא" style={{ transform: svgTransform, transformOrigin: '50% 50%' }}>
         <defs>
           <radialGradient id={`glowFull${idSuffix ?? ''}`} cx="50%" cy="50%" r="60%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
@@ -611,9 +691,6 @@ function MoonPhasePath({ illumination, waxing, hebrewDay, idSuffix, disableTilt 
       'Z',
     ].join(' ')
   }
-
-  const baseTilt = 35
-  const tilt = disableTilt ? 0 : (typeof hebrewDay === 'number' ? (hebrewDay <= 15 ? baseTilt : -baseTilt) : 0)
 
   const svgTransform = disableTilt ? undefined : `rotate(${tilt}deg) scaleX(-1)`
   return (
@@ -807,8 +884,6 @@ export default function App(){
   }
 
   const [date, setDate] = useState('1969-07-20')
-  const [hour, setHour] = useState('00:00')
-  const [showTimePicker, setShowTimePicker] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadingIllum, setLoadingIllum] = useState(0)
@@ -832,40 +907,22 @@ export default function App(){
   const heroRef = useRef<HTMLDivElement|null>(null)
   const skyRef = useRef<HTMLDivElement|null>(null)
   const dateInputRef = useRef<HTMLInputElement|null>(null)
-  const timeInputRef = useRef<HTMLInputElement|null>(null)
   const [skySize, setSkySize] = useState<{width:number;height:number}>({width: 900, height: 360})
   const [isLandscape, setIsLandscape] = useState(false)
   const [eastClickCount, setEastClickCount] = useState(0)
   const [showDebugMode, setShowDebugMode] = useState(false)
 
-  // Single source of truth for [A, B] based on yearData/date and hour vs sunset(D)
+  // Single source of truth for [A, B] based on yearData/date - always [D-1, D] now
   const abWindow = useMemo(()=>{
     if (!yearData || !record) return { A: null as DayRecord|null, B: null as DayRecord|null }
     const d = new Date(date)
     const prev = new Date(d); prev.setDate(d.getDate()-1)
-    const next = new Date(d); next.setDate(d.getDate()+1)
     const prevKey = formatYMDLocal(prev)
-    const nextKey = formatYMDLocal(next)
     const prevRec = yearData[prevKey] ?? null
-    const nextRec = yearData[nextKey] ?? null
-    if (!showTimePicker){
-      // No hour selected: always [D-1, D]
-      return { A: prevRec ?? record, B: record }
-    }
-    const sunsetToday = timeToMinutes(record.sun.sunset ?? null)
-    const birthMin = timeToMinutes(hour) ?? null
-    if (sunsetToday!=null && birthMin!=null){
-      if (birthMin < sunsetToday){
-        // H before sunset: [D-1, D]
-        return { A: prevRec ?? record, B: record }
-      } else {
-        // H after sunset: [D, D+1]
-        return { A: record, B: nextRec ?? record }
-      }
-    }
-    // Fallback when hour malformed: treat as no hour → [D-1, D]
+    
+    // Always return [D-1, D] since slider now represents Georgian date 00:00-23:59
     return { A: prevRec ?? record, B: record }
-  }, [yearData, date, record, showTimePicker, hour])
+  }, [yearData, date, record])
 
   const activeHebrewRecord = abWindow.B
   
@@ -1031,18 +1088,7 @@ export default function App(){
     }
   }, [submitted])
 
-  // When enabling time picker, focus the time input and select the hour (HH)
-  useEffect(()=>{
-    if (showTimePicker){
-      const id = window.setTimeout(()=>{
-        const el = timeInputRef.current
-        if (!el) return
-        el.focus()
-        try { el.setSelectionRange?.(0, 2) } catch {}
-      }, 0)
-      return ()=> window.clearTimeout(id)
-    }
-  }, [showTimePicker])
+
 
   // Watch for cache updates and immediately set data if available
   useEffect(() => {
@@ -1100,7 +1146,7 @@ export default function App(){
       // Boundary for calculation (no offset)
       setHebrewBoundary(ssCurrRaw ?? null)
       // Determine A,B per spec: if hour < sunset(D) → [D-1, D], else [D, D+1]
-      const birthMin = timeToMinutes(hour) ?? null
+      const birthMin = null // No specific birth time since hour picker was removed
       // Use abWindow as the single source of truth for [A, B]
       const AstartRaw: number | null = timeToMinutes((abWindow.A?.sun.sunset ?? null))
       const BendRaw: number | null = timeToMinutes((abWindow.B?.sun.sunset ?? null))
@@ -1111,16 +1157,12 @@ export default function App(){
       setHebrewEnd(winEnd)
 
       if (!submitted){
-        const bm = timeToMinutes(hour) ?? null
-        const offset = (bm!=null && winStart!=null)
-          ? ((bm - winStart + 1440) % 1440)
-          : 0
-        setSliderPos(Math.floor(offset * SLIDER_SLOWDOWN_FACTOR))
-        const curMin = winStart!=null ? (winStart + Math.floor(offset)) % 1440 : (bm ?? 0)
-        setMinutes(curMin)
+        // No hour picker, start at midnight (00:00)
+        setSliderPos(0)
+        setMinutes(0)
       }
     }
-  }, [yearData, date, hour, abWindow.A, abWindow.B])
+  }, [yearData, date, abWindow.A, abWindow.B])
 
   const slideRafRef = useRef<number | null>(null)
   const [showHints, setShowHints] = useState(false) // hand hint visibility (after auto-scroll ends)
@@ -1131,13 +1173,10 @@ export default function App(){
   const iconTimerRef = useRef<number | null>(null)
   const [overrideGregToB, setOverrideGregToB] = useState(false)
 
-  // Max slider value depends on the active Hebrew day window
+  // Max slider value now represents Georgian date (23:59 = 1439 minutes)
   const maxSliderVal = useMemo(()=>{
-    const ss0 = hebrewStart
-    const ss1 = hebrewEnd
-    const duration = (ss0!=null && ss1!=null) ? ((1440 - ss0) + ss1) : 1440
-    return duration * SLIDER_SLOWDOWN_FACTOR
-  }, [hebrewStart, hebrewEnd])
+    return 1439 * SLIDER_SLOWDOWN_FACTOR // 00:00 to 23:59
+  }, [])
 
   // Helpers for interval intersection on circular 0..1440 timeline
   function toSegments(start:number, end:number): Array<{s:number,e:number}>{
@@ -1225,69 +1264,143 @@ export default function App(){
   useEffect(()=>{
     const pct = maxSliderVal>0 ? (sliderPos / maxSliderVal) : 0
     setThumbLeftPct(Math.max(0, Math.min(1, pct))*100)
+    // Update minutes based on Georgian time (0-1439 minutes in a day)
+    const georgianMinutes = Math.round(sliderPos / SLIDER_SLOWDOWN_FACTOR)
+    setMinutes(Math.min(1439, georgianMinutes)) // Ensure never exceeds 23:59
   }, [sliderPos, maxSliderVal])
   useEffect(()=>{
     if (!submitted) return
-    // Animate slider from window start (left) to the selected hour within Hebrew window
-    const startPos = 0
-    const winStart = hebrewStart
-    const winEnd = hebrewEnd
-    const birthMin = showTimePicker ? (timeToMinutes(hour) ?? null) : (defaultAutoTargetMinutes ?? null)
-    let targetOffDisp = 0
-    if (winStart!=null && winEnd!=null && birthMin!=null){
-      const durationDisp = ((1440 - winStart) + winEnd)
-      const offDisp = (birthMin - winStart + 1440) % 1440
-      targetOffDisp = Math.min(offDisp, durationDisp)
-    }
-    const targetPos = targetOffDisp * SLIDER_SLOWDOWN_FACTOR
-    setSliderPos(startPos)
-    if (hebrewStart!=null){ setMinutes(hebrewStart) }
-    // During auto-scroll with no hour: start at A, flip to B at midnight via label logic
+    
+    // New auto-scroll logic: 
+    // 1. First cycle: 00:00 to 23:59 (complete Georgian day)
+    // 2. Second cycle: 00:00 to moon rise (if moon rises during the day)
+    
+    setSliderPos(0)
+    setMinutes(0)
     setOverrideGregToB(false)
+    
     const animStart = performance.now()
-    // Dynamic auto-scroll duration: fraction * 16s, clamped to [3s, 10s] (2x slower)
-    const fraction = maxSliderVal > 0 ? (targetPos / maxSliderVal) : 0
-    const animDur = Math.max(3000, Math.min(10000, 16000 * fraction))
+    const baseDuration = 8000 // 8 seconds base duration
+    
+    // Calculate dynamic duration based on celestial visibility
+    const sunriseTime = timeToMinutes(record?.sun.sunrise ?? null)
+    const sunsetTime = timeToMinutes(record?.sun.sunset ?? null)  
+    const moonriseTime = timeToMinutes(record?.moon_times.moonrise ?? null)
+    const moonsetTime = timeToMinutes(record?.moon_times.moonset ?? null)
+    
+    // Calculate weighted duration by sampling visibility throughout the day
+    let totalWeight = 0
+    const samples = 144 // Sample every 10 minutes (1440/10)
+    for (let i = 0; i < samples; i++) {
+      const sampleMinutes = (i * 1440) / samples
+      const speedMultiplier = getCelestialScrollSpeed(sampleMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
+      totalWeight += speedMultiplier
+    }
+    const avgSpeedMultiplier = totalWeight / samples
+    const dynamicDuration = baseDuration / avgSpeedMultiplier
+    
     // Start illumination label 2s after auto-scroll begins
     hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
     hintTimerRef.current = window.setTimeout(()=> setHintActive(true), 2000)
-    const animateSlide = (now:number) => {
-      const t = Math.min(1, (now - animStart)/animDur)
+    
+    let lastTime = animStart
+    let accumulatedProgress = 0
+    
+    const animateFirstCycle = (now: number) => {
+      const deltaTime = now - lastTime
+      lastTime = now
+      
+      // Calculate current minutes for speed determination
+      const currentProgress = Math.min(1, accumulatedProgress)
+      const currentMinutes = currentProgress * 1440
+      const speedMultiplier = getCelestialScrollSpeed(currentMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
+      
+      // Advance progress based on current speed
+      const progressDelta = (deltaTime * speedMultiplier) / baseDuration
+      accumulatedProgress += progressDelta
+      
+      const t = Math.min(1, accumulatedProgress)
       const eased = t*t*(3 - 2*t) // smoothstep
-      const pos = startPos + (targetPos - startPos) * eased
+      const pos = eased * maxSliderVal
       setSliderPos(pos)
-      if (hebrewStart!=null){
-        const off = Math.floor(pos/SLIDER_SLOWDOWN_FACTOR)
-        const m = (hebrewStart + off) % 1440
-        setMinutes(m)
-      }
-      if (t < 1){
-        slideRafRef.current = requestAnimationFrame(animateSlide)
+      
+      if (t < 1) {
+        slideRafRef.current = requestAnimationFrame(animateFirstCycle)
       } else {
-        slideRafRef.current && cancelAnimationFrame(slideRafRef.current)
-        slideRafRef.current = null
-        // compute final percent for both text and icon before reveal
-        const finalPct = maxSliderVal > 0 ? (targetPos / maxSliderVal) : 0
-        setThumbLeftPct(Math.max(0, Math.min(1, finalPct)) * 100)
-        setShowHints(false)
-        iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
-        iconTimerRef.current = window.setTimeout(()=> {
-          setShowHints(true)
-        }, 500)
-        // restore normal Gregorian label behavior after auto-scroll
-        setOverrideGregToB(false)
+        // First cycle complete, check if we need second cycle
+        const moonriseMinutes = timeToMinutes(record?.moon_times.moonrise ?? null)
+        if (moonriseMinutes != null && moonriseMinutes > 0 && moonriseMinutes < 1440) {
+          // Start second cycle: 00:00 to moonrise + 30 minutes with dynamic speed
+          const secondAnimStart = performance.now()
+          const targetMinutes = Math.min(1439, moonriseMinutes + 30) // Cap at 23:59
+          const moonrisePos = targetMinutes * SLIDER_SLOWDOWN_FACTOR
+          
+          let secondLastTime = secondAnimStart
+          let secondAccumulatedProgress = 0
+          
+          const animateSecondCycle = (now: number) => {
+            const deltaTime = now - secondLastTime
+            secondLastTime = now
+            
+            // Calculate current minutes for speed determination (0 to targetMinutes)
+            const currentProgress = Math.min(1, secondAccumulatedProgress)
+            const currentMinutes = currentProgress * targetMinutes
+            const speedMultiplier = getCelestialScrollSpeed(currentMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
+            
+            // Advance progress based on current speed (proportional to target fraction)
+            const progressDelta = (deltaTime * speedMultiplier) / (baseDuration * (targetMinutes / 1440))
+            secondAccumulatedProgress += progressDelta
+            
+            const t = Math.min(1, secondAccumulatedProgress)
+            const eased = t*t*(3 - 2*t) // smoothstep
+            const pos = eased * moonrisePos
+            setSliderPos(pos)
+            
+            if (t < 1) {
+              slideRafRef.current = requestAnimationFrame(animateSecondCycle)
+            } else {
+              // Animation complete
+              slideRafRef.current = null
+              setShowHints(false)
+              iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
+              iconTimerRef.current = window.setTimeout(()=> {
+                setShowHints(true)
+              }, 500)
+              setOverrideGregToB(false)
+            }
+          }
+          
+          // Reset to start and begin second cycle
+          setSliderPos(0)
+          setMinutes(0)
+          slideRafRef.current = requestAnimationFrame(animateSecondCycle)
+        } else {
+          // No moonrise during day, just end here
+          slideRafRef.current = null
+          setShowHints(false)
+          iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
+          iconTimerRef.current = window.setTimeout(()=> {
+            setShowHints(true)
+          }, 500)
+          setOverrideGregToB(false)
+        }
       }
     }
+    
     slideRafRef.current && cancelAnimationFrame(slideRafRef.current)
-    slideRafRef.current = requestAnimationFrame(animateSlide)
+    slideRafRef.current = requestAnimationFrame(animateFirstCycle)
+    
     // Ensure we're at the top of the viewport for landscape mode
     window.scrollTo({ top: 0, behavior: 'smooth' })
     skyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    
     return ()=>{
+      slideRafRef.current && cancelAnimationFrame(slideRafRef.current)
+      slideRafRef.current = null
       hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
       hintTimerRef.current = null
     }
-  }, [submitted, maxSliderVal])
+  }, [submitted, maxSliderVal, record])
 
   const sunrise = timeToMinutes(record?.sun.sunrise ?? null)
   const sunset = timeToMinutes(record?.sun.sunset ?? null)
@@ -1297,37 +1410,92 @@ export default function App(){
   const mode = skyMode(minutes, sunrise, sunset)
   const sky = useMemo(()=>{
     // Compute dynamic center on the same arc as the sun, based on current minutes
-    const toCenterPct = (t:number): string => {
-      const tt = Math.max(0, Math.min(1, t))
-      const xPct = 12 + (88 - 12) * tt
-      const yPct = 90 - Math.sin(Math.PI * tt) * 72
-      return `${xPct}% ${yPct}%`
-    }
+    // Use B-day sun times to match actual sun position
+    const sunriseB = timeToMinutes(abWindow.B?.sun.sunrise ?? null)
+    const sunsetB = timeToMinutes(abWindow.B?.sun.sunset ?? null)
+    
     const dynamicCenter = (()=>{
-      if (sunrise==null || sunset==null) return null
-      if (sunset >= sunrise){
-        // Normal case: day is [sunrise .. sunset]
-        if (minutes <= sunrise) return toCenterPct(0)
-        if (minutes >= sunset) return toCenterPct(1)
-        const t = (minutes - sunrise) / (sunset - sunrise)
-        return toCenterPct(t)
+      if (sunriseB==null || sunsetB==null) return { position: null, opacity: 0 }
+      
+      // Check if we're in background transition periods (when glow should be active)
+      const dawnStart = sunriseB - 60
+      const dawnEnd = sunriseB + 30  
+      const duskStart = sunsetB - 45
+      const duskEnd = sunsetB + 30
+      
+      const inDawnTransition = minutes >= dawnStart && minutes <= dawnEnd
+      const inDuskTransition = minutes >= duskStart && minutes <= duskEnd
+      
+      // Calculate opacity based on transition progress
+      let opacity = 0
+      if (inDawnTransition) {
+        // Fade in during first 15 minutes, full opacity during sunrise, fade out during last 15 minutes
+        const dawnDuration = dawnEnd - dawnStart // 90 minutes
+        const fadeInEnd = dawnStart + 15
+        const fadeOutStart = dawnEnd - 15
+        
+        if (minutes <= fadeInEnd) {
+          opacity = (minutes - dawnStart) / 15 // Fade in
+        } else if (minutes >= fadeOutStart) {
+          opacity = (dawnEnd - minutes) / 15 // Fade out
+        } else {
+          opacity = 1 // Full opacity
+        }
+      } else if (inDuskTransition) {
+        // Fade in during first 15 minutes, full opacity during sunset, fade out to end at sunset + 10
+        const duskDuration = duskEnd - duskStart // 75 minutes
+        const fadeInEnd = duskStart + 15
+        const fadeOutStart = duskEnd - 35  // Start fade out to end at sunset + 10 (instead of sunset + 30)
+        
+        if (minutes <= fadeInEnd) {
+          opacity = (minutes - duskStart) / 15 // Fade in
+        } else if (minutes >= fadeOutStart) {
+          opacity = (duskEnd - 20 - minutes) / 15 // Fade out over 15 minutes, ending at sunset + 10
+        } else {
+          opacity = 1 // Full opacity
+        }
+      }
+      
+      opacity = Math.max(0, Math.min(1, opacity)) // Clamp to 0-1
+      
+      // Always calculate position during transition periods, even if opacity is 0
+      // Use the same arcPosition function as the actual sun
+      const pos = arcPosition(minutes, sunriseB, sunsetB, skySize.width, skySize.height)
+      
+      if (pos) {
+        // Normal case: sun is visible, use actual position
+        const xPct = (pos.x / skySize.width) * 100
+        const yPct = (pos.y / skySize.height) * 100
+        return { position: `${xPct.toFixed(1)}% ${yPct.toFixed(1)}%`, opacity }
       } else {
-        // Rare wrap case (polar): day spans midnight
-        const total = (1440 - sunrise) + sunset
-        if (minutes >= sunrise){
-          const t = (minutes - sunrise) / total
-          return toCenterPct(t)
+        // Sun is not visible but we're in transition - use transition-specific position
+        if (inDawnTransition) {
+          // During dawn transition but before sunrise: use sunrise position
+          const startPos = arcPosition(sunriseB, sunriseB, sunsetB, skySize.width, skySize.height)
+          if (startPos) {
+            const xPct = (startPos.x / skySize.width) * 100
+            const yPct = (startPos.y / skySize.height) * 100
+            return { position: `${xPct.toFixed(1)}% ${yPct.toFixed(1)}%`, opacity }
+          }
+          return { position: "5.0% 85.0%", opacity }
+        } else if (inDuskTransition) {
+          // During dusk transition but after sunset: use sunset position
+          const endPos = arcPosition(sunsetB, sunriseB, sunsetB, skySize.width, skySize.height)
+          if (endPos) {
+            const xPct = (endPos.x / skySize.width) * 100
+            const yPct = (endPos.y / skySize.height) * 100
+            return { position: `${xPct.toFixed(1)}% ${yPct.toFixed(1)}%`, opacity }
+          }
+          return { position: "95.0% 85.0%", opacity }
         }
-        if (minutes <= sunset){
-          const t = ((1440 - sunrise) + minutes) / total
-          return toCenterPct(t)
-        }
-        // Night outside the day span: clamp to start
-        return toCenterPct(0)
+        return { position: null, opacity: 0 }
       }
     })()
-    return { background: skyColor(minutes, sunrise, sunset, { dawnCenter: dynamicCenter, duskCenter: dynamicCenter }) }
-  }, [minutes, sunrise, sunset])
+    return { 
+      background: skyColor(minutes, sunrise, sunset, { dawnCenter: dynamicCenter.position, duskCenter: dynamicCenter.position }),
+      glowCenter: dynamicCenter 
+    }
+  }, [minutes, sunrise, sunset, abWindow.B, skySize])
   // 30-minute visual lag for sea and mountains relative to sky transitions
   const minutesLag = minutes - 30
   const seaStyle = useMemo(()=>({ background: seaGradient(minutesLag, sunrise, sunset) }), [minutes, sunrise, sunset])
@@ -1377,10 +1545,7 @@ export default function App(){
     // Loading animation: 3 cycles, 2s each (2x slower), new→full (waxing) then full→new (waning)
     setIsLoading(true)
     setUserInteractedWithSlider(false)
-    // If user did not select a specific hour, default to midpoint between moonrise and moonset of selected date
-    if (!showTimePicker && defaultAutoTargetMinutes!=null) {
-      setHour(minutesToHM(defaultAutoTargetMinutes))
-    }
+    // Hour picker removed - no need to set specific hour
     pickRandomFact()
     const start = performance.now()
     const cycleMs = 1000
@@ -1413,8 +1578,7 @@ export default function App(){
     setUserInteractedWithSlider(false)
     setShowHints(false)
     // no separate icon hint flag; both elements controlled by showHints + userInteractedWithSlider
-    setShowTimePicker(false)
-    setHour('00:00')
+
     setMinutes(0)
     setSliderPos(0)
     // left percentage recalculated as sliderPos updates
@@ -1476,30 +1640,7 @@ export default function App(){
                 />
               </div>
               
-              {/* Hour picker/button */}
-              <div style={{display:'flex', justifyContent:'center'}} dir="ltr">
-                {showTimePicker ? (
-                  <input
-                    className="input"
-                    style={{minWidth:'auto'}}
-                    type="time"
-                    value={hour}
-                    ref={timeInputRef}
-                    onKeyDown={e=>{
-                      if (e.key === 'Enter'){
-                        e.preventDefault()
-                        if (record && !loading && !isLoading){
-                          handleSubmit()
-                        }
-                      }
-                    }}
-                    onChange={e=>{ setHour(e.target.value); setSubmitted(false) }}
-                    disabled={isLoading}
-                  />
-                ) : (
-                  <button className="button button-small" onClick={()=> setShowTimePicker(true)} disabled={isLoading}>הוסף שעה מדוייקת</button>
-                )}
-              </div>
+
               
               {/* Submit button */}
               <div style={{marginTop:'8px'}}>
@@ -1531,7 +1672,7 @@ export default function App(){
 
       <div className={submitted ? '' : 'hidden'}>
         <div ref={skyRef} className={`sky ${mode}`} style={{
-          ...sky,
+          background: sky.background,
           ...(showDebugMode ? {
             border: '3px solid #00ff00',
             boxSizing: 'border-box'
@@ -1592,21 +1733,7 @@ export default function App(){
                 screenMode = detectedLandscape ? 'Mobile Landscape' : 'Mobile Portrait'
               }
               
-              let reason = 'Reasons:\n'
-              if (isMobileSize) {
-                reason += `• Mobile size: ${windowWidth}x${windowHeight}\n`
-                if (detectedLandscape) {
-                  reason += '• Landscape detected by:\n'
-                  if (isLandscapeByOrientation) reason += '  - Device orientation\n'
-                  if (isLandscapeByDimensions) reason += '  - Width > Height\n'
-                  if (isLandscapeByAspectRatio) reason += '  - Aspect ratio > 1.0\n'
-                } else {
-                  reason += '• Portrait mode (no landscape triggers)\n'
-                }
-              } else {
-                reason += `• PC/Desktop: screen size ${windowWidth}x${windowHeight}\n`
-                reason += '• Not mobile size (max ≤ 1000, min ≤ 767)\n'
-              }
+
               
               return (
                 <>
@@ -1614,35 +1741,72 @@ export default function App(){
                   <div style={{marginTop: '4px', fontSize: '10px', color: '#ffff00'}}>
                     Size: {windowWidth}x{windowHeight} | Ratio: {aspectRatio.toFixed(2)}
                   </div>
-                  <div style={{marginTop: '4px', fontSize: '10px', whiteSpace: 'pre-line'}}>
-                    {reason}
-                  </div>
+
                   <div style={{marginTop: '8px', fontSize: '10px', color: '#00ff88'}}>
-                    Cache: {yearCache.size}/82 years loaded
-                    {yearCache.has(year) ? ` | ${year} ✓` : ` | ${year} loading...`}
+                    Sun Arc: {sunrise && sunset ? `${minutesToHM(sunrise)}-${minutesToHM(sunset)}` : 'N/A'}
+                    <br/>Moon Arc: {moonrise && moonset ? `${minutesToHM(moonrise)}-${minutesToHM(moonset)}` : 'N/A'}
                   </div>
-                  <div style={{marginTop: '6px', fontSize: '9px', color: '#cccccc', whiteSpace: 'pre-line'}}>
-                    Debug Borders:
-                    🟢 Sky container
-                    🔴 Overlay-controls
-                    🟡 Overlay-grid
-                    🔵 Grid sections
+                  <div style={{marginTop: '6px', fontSize: '9px', color: '#cccccc'}}>
+                    <div>🟢 Sky container</div>
+                    <div>🔴 Overlay-controls</div>
+                    <div>🟡 Overlay-grid</div>
+                    <div>🔵 Grid sections</div>
                   </div>
                 </>
               )
             })()}
           </div>
           )}
+          
+          {/* Debug glow center marker */}
+          {showDebugMode && sky.glowCenter.position && (
+            <div style={{
+              position: 'absolute',
+              left: sky.glowCenter.position.split(' ')[0],
+              top: sky.glowCenter.position.split(' ')[1],
+              width: '12px',
+              height: '12px',
+              background: '#ff00ff',
+              border: '2px solid #ffffff',
+              borderRadius: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 20,
+              pointerEvents: 'none',
+              boxShadow: '0 0 8px rgba(255, 0, 255, 0.8)',
+              opacity: sky.glowCenter.opacity,
+              transition: 'opacity 2s ease-in-out, left 0.3s ease-out, top 0.3s ease-out'
+            }}
+            title="Glow Center"
+            />
+          )}
+          
           <div className="overlay-top">
             <div className="overlay-top-inner">
               {/* Hour moved below to slider area */}
               <div className="date-wrap">
                 <div className="hebrew-date">
                   {(() => {
-                    // Hebrew date follows B (end of Hebrew-day window) per spec
-                    const hebDay = abWindow.B?.hebrew_day
-                    const hebMonth = abWindow.B?.hebrew_month
-                    const hebYear = abWindow.B?.hebrew_year
+                    // New logic: show Georgian date's Hebrew date until sunset, then D+1's Hebrew date
+                    const sunsetMinutes = timeToMinutes(record?.sun.sunset ?? null)
+                    const currentMinutes = minutes
+                    
+                    let hebRecord
+                    if (sunsetMinutes != null && currentMinutes >= sunsetMinutes) {
+                      // After sunset: show D+1 Hebrew date (next day)
+                      const d = new Date(date)
+                      const next = new Date(d)
+                      next.setDate(d.getDate() + 1)
+                      const nextKey = formatYMDLocal(next)
+                      hebRecord = yearData?.[nextKey] ?? null
+                    } else {
+                      // Before sunset: show current Georgian date's Hebrew date  
+                      hebRecord = record
+                    }
+                    
+                    const hebDay = hebRecord?.hebrew_day
+                    const hebMonth = hebRecord?.hebrew_month
+                    const hebYear = hebRecord?.hebrew_year
+                    
                     return (
                       <>
                         <span className="day-highlight">
@@ -1663,38 +1827,10 @@ export default function App(){
                       const dd = String(g.getDate()).padStart(2,'0')
                       return `${dd}/${m}/${y}`
                     }
-                    // Gregorian label:
-                    // - During auto-scroll with no explicit hour: temporarily show B to match user focus on D.
-                    // - Otherwise: before 00:00 show A; after 00:00 show B (midnight flip by raw interval).
-                    const gA = new Date(date)
-                    const gB = new Date(date)
-                    if (abWindow.A === record) {
-                      // A is D
-                    } else {
-                      // A is D-1
-                      gA.setDate(gA.getDate()-1)
-                    }
-                    if (abWindow.B === record) {
-                      // B is D
-                    } else {
-                      // B is D+1
-                      gB.setDate(gB.getDate()+1)
-                    }
-                    if (overrideGregToB) return fmt(gB)
-                    // Flip at midnight (00:00) exactly. The slider starts at displayed start (A sunset + offset),
-                    // so adjust the raw midnight threshold by the display offset (HEBREW_DAY_OFFSET_MIN).
-                    const startRaw = timeToMinutes(abWindow.A?.sun.sunset ?? null)
-                    const endRaw = timeToMinutes(abWindow.B?.sun.sunset ?? null)
-                    if (startRaw!=null && endRaw!=null){
-                      let durRaw = (1440 - startRaw) + endRaw
-                      if (durRaw <= 0) durRaw = 1440
-                      const thresholdRaw = (1440 - startRaw) % 1440
-                      const thresholdDisp = (thresholdRaw - HEBREW_DAY_OFFSET_MIN + 1440) % 1440
-                      const off = Math.floor(sliderPos / SLIDER_SLOWDOWN_FACTOR)
-                      const afterMidnight = off >= thresholdDisp
-                      return afterMidnight ? fmt(gB) : fmt(gA)
-                    }
-                    return fmt(gA)
+                    // Simplified: always show D (the selected Georgian date)
+                    // since slider now represents Georgian date 00:00-23:59
+                    const gregorianDate = new Date(date)
+                    return fmt(gregorianDate)
                   })()}
                 </div>
                 {/* Removed stage sentence per request */}
@@ -1751,18 +1887,22 @@ export default function App(){
           {(
             <div className={`illum-label ${hintActive ? 'show' : ''}`}>
               {(() => {
-                const illum = Math.round(((activeHebrewRecord?.moon.illumination ?? 0) * 100))
+                const rawIllum = (activeHebrewRecord?.moon.illumination ?? 0) * 100
+                const illum = Math.round(rawIllum)
                 const hebrewDay = activeHebrewRecord?.hebrew_day
+                
+                // Format illumination percentage with special handling for very low values
+                const illuminationText = illum < 1 ? 'בפחות מ1%' : `ב${illum}%`
                 
                 if (hebrewDay === 1) {
                   // Rosh Chodesh - first day of Hebrew month
-                  return `נולדת בראש חודש! ביום זה לבנה מוארת רק ב${illum}%`
+                  return `נולדת בראש חודש! ביום זה לבנה מוארת ${illuminationText}`
                 } else if (hebrewDay === 15) {
                   // Tu (15th) - full moon
                   return `ביום שנולדת הירח היה מלא!`
                 } else {
                   // Default message
-                  return `ביום שנולדת לבנה הייתה מוארת ב${illum}%`
+                  return `ביום שנולדת לבנה הייתה מוארת ${illuminationText}`
                 }
               })()}
             </div>
@@ -1787,8 +1927,8 @@ export default function App(){
             // Night-glow fade around night mode: fade in 30 min BEFORE night starts, fade out 30 min AFTER night ends
             let nightGlowWeight = 0
             if (sunrise!=null && sunset!=null){
-              const dawnStart = sunrise - 120
-              const duskEnd = sunset + 120
+              const dawnStart = sunrise - 60
+              const duskEnd = sunset + 30
               const fade = 90
               // Fade-in window before night starts on the evening side
               if (minutes > (duskEnd - fade) && minutes <= duskEnd){
@@ -1813,16 +1953,140 @@ export default function App(){
                   : undefined
               }}>
                 {(() => {
-                  let hebrewDayNum = record?.hebrew_day ?? 1
-                  if (hebrewDayNum === 1) hebrewDayNum = 2
-                  if (hebrewDayNum === 30) hebrewDayNum = 29
-                  const { illumination, rightLit } = appearanceFromHebrewDay(hebrewDayNum)
-                  // Invert to fix mirrored appearance
-                  return <MoonPhasePath illumination={illumination} waxing={!rightLit} hebrewDay={hebrewDayNum} />
+                  // Use actual moon data instead of synthetic calculation
+                  const actualIllumination = record?.moon.illumination ?? 0
+                  const actualWaxing = record?.moon.waxing ?? true
+                  const hebrewDayNum = record?.hebrew_day ?? 1
+                  
+                  // Set minimum 3% visibility for moon element (while keeping real data for label)
+                  const moonDisplayIllumination = Math.max(actualIllumination, 0.03)
+                  
+                  // Special handling for Hebrew day 1: force waxing crescent for visual consistency
+                  // Other days use real astronomical data
+                  let displayWaxing
+                  if (hebrewDayNum === 1) {
+                    // Hebrew day 1 should always appear as waxing crescent (beginning of month)
+                    displayWaxing = true
+                  } else {
+                    // Use real waxing data for other days
+                    displayWaxing = actualWaxing
+                  }
+                  
+                  // Use real moon data for accurate rendering
+                  // Invert waxing to fix mirrored appearance (same logic as before)
+                  return <MoonPhasePath 
+                    illumination={moonDisplayIllumination} 
+                    waxing={!displayWaxing} 
+                    hebrewDay={hebrewDayNum} 
+                  />
                 })()}
               </div>
             )
           })()}
+
+          {/* Debug mode: Visual arc indicators */}
+          {showDebugMode && (
+            <>
+              {/* Sun Arc Indicator */}
+              {(() => {
+                const sunriseB = timeToMinutes(abWindow.B?.sun.sunrise ?? null)
+                const sunsetB = timeToMinutes(abWindow.B?.sun.sunset ?? null)
+                if (!sunriseB || !sunsetB) return null
+                
+                // Calculate arc path for sun
+                const points = []
+                const step = 5 // Sample every 5 minutes
+                for (let m = sunriseB; m <= sunsetB; m += step) {
+                  const pos = arcPosition(m, sunriseB, sunsetB, skySize.width, skySize.height)
+                  if (pos) points.push(`${pos.x},${pos.y}`)
+                }
+                
+                if (points.length < 2) return null
+                
+                return (
+                  <svg
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 20
+                    }}
+                  >
+                    <polyline
+                      points={points.join(' ')}
+                      fill="none"
+                      stroke="#ffaa00"
+                      strokeWidth="2"
+                      strokeDasharray="5,3"
+                      opacity="0.8"
+                    />
+                  </svg>
+                )
+              })()}
+
+              {/* Moon Arc Indicator */}
+              {(() => {
+                const moonriseA = timeToMinutes(abWindow.A?.moon_times.moonrise ?? null)
+                const moonsetA = timeToMinutes(abWindow.A?.moon_times.moonset ?? null)
+                const moonsetB = timeToMinutes(abWindow.B?.moon_times.moonset ?? null)
+                const effectiveRise = moonriseA ?? timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
+                const effectiveSet = (moonsetA != null ? moonsetA : moonsetB)
+                
+                if (!effectiveRise || !effectiveSet) return null
+                
+                // Calculate arc path for moon (handle midnight crossing)
+                const points = []
+                const step = 10 // Sample every 10 minutes
+                const wraps = effectiveSet < effectiveRise
+                
+                if (wraps) {
+                  // Moon crosses midnight
+                  for (let m = effectiveRise; m < 1440; m += step) {
+                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
+                    if (pos) points.push(`${pos.x},${pos.y}`)
+                  }
+                  for (let m = 0; m <= effectiveSet; m += step) {
+                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
+                    if (pos) points.push(`${pos.x},${pos.y}`)
+                  }
+                } else {
+                  // Normal case
+                  for (let m = effectiveRise; m <= effectiveSet; m += step) {
+                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
+                    if (pos) points.push(`${pos.x},${pos.y}`)
+                  }
+                }
+                
+                if (points.length < 2) return null
+                
+                return (
+                  <svg
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 21
+                    }}
+                  >
+                    <polyline
+                      points={points.join(' ')}
+                      fill="none"
+                      stroke="#88ccff"
+                      strokeWidth="2"
+                      strokeDasharray="3,5"
+                      opacity="0.7"
+                    />
+                  </svg>
+                )
+              })()}
+            </>
+          )}
         </div>
 
         <div className="overlay-controls" style={showDebugMode ? {
@@ -1867,13 +2131,9 @@ export default function App(){
                     onChange={e=>{
                       const v = Number(e.target.value)
                       setSliderPos(v)
-                      const off = Math.floor(v/SLIDER_SLOWDOWN_FACTOR)
-                      if (ss0!=null){
-                        const m = (ss0 + off) % 1440
-                        setMinutes(m)
-                      } else {
-                        setMinutes(off)
-                      }
+                      // Minutes are now directly Georgian time (0-1439)
+                      const georgianMinutes = Math.floor(v/SLIDER_SLOWDOWN_FACTOR)
+                      setMinutes(georgianMinutes)
                       const pct = maxVal>0 ? (v/maxVal) : 0
                       setThumbLeftPct(Math.max(0, Math.min(1, pct))*100)
                       // On user interaction: hide hand hint (but keep illumination label visible)
