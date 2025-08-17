@@ -433,18 +433,18 @@ function arcPosition(minutes:number, rise:number|null, set:number|null, width:nu
   // Convert back to percentage of container height
   const arcHeightPercent = (adjustedArcHeightPixels / height) * 100
   
-  // Calculate clearance for overlay-top based on screen size
-  // Mobile needs more clearance due to larger overlay elements
+  // Calculate clearance for overlay-top + moon size based on screen size
+  // Need to account for date-wrap element AND provide moon-size clearance below it
   let topClearancePercent
   if (aspectRatio < 1.0) {
-    // Mobile portrait - more clearance needed
-    topClearancePercent = 18
+    // Mobile portrait - more clearance needed (date-wrap + moon size)
+    topClearancePercent = 25
   } else if (aspectRatio >= 1.6) {
-    // Desktop - less clearance needed
-    topClearancePercent = 12
+    // Desktop - moderate clearance needed
+    topClearancePercent = 20
   } else {
     // Tablet - medium clearance
-    topClearancePercent = 15
+    topClearancePercent = 22
   }
   
   // Clamp the arc height to reasonable bounds, accounting for top clearance
@@ -1242,9 +1242,9 @@ export default function App(){
     const animStart = performance.now()
     const duration = 10000 // 10 seconds for full 25-hour cycle
     
-    // Start illumination label 2s after auto-scroll begins
+    // Clear any existing illumination label timer
     hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
-    hintTimerRef.current = window.setTimeout(()=> setHintActive(true), 2000)
+    setHintActive(false)
     
     const animate = (now: number) => {
       const elapsed = now - animStart
@@ -1264,13 +1264,16 @@ export default function App(){
       if (progress < 1) {
         slideRafRef.current = requestAnimationFrame(animate)
       } else {
-        // Animation complete - should end at moonrise + 30
+        // Animation complete - should end at moonrise + 75
         slideRafRef.current = null
         setShowHints(false)
         iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
         iconTimerRef.current = window.setTimeout(()=> {
           setShowHints(true)
         }, 500)
+        // Show illumination label after auto-scroll completes
+        hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
+        hintTimerRef.current = window.setTimeout(()=> setHintActive(true), 1000)
         setOverrideGregToB(false)
       }
     }
@@ -1772,29 +1775,121 @@ export default function App(){
           >
             מזרח
           </div>
-          {(
-            <div className={`illum-label ${hintActive ? 'show' : ''}`}>
-              {(() => {
-                const rawIllum = (activeHebrewRecord?.moon.illumination ?? 0) * 100
-                const illum = Math.round(rawIllum)
-                const hebrewDay = activeHebrewRecord?.hebrew_day
-                
-                // Format illumination percentage with special handling for very low values
-                const illuminationText = illum < 1 ? 'בפחות מ1%' : `ב${illum}%`
-                
-                if (hebrewDay === 1) {
-                  // Rosh Chodesh - first day of Hebrew month
-                  return `נולדת בראש חודש! ביום זה לבנה מוארת ${illuminationText}`
-                } else if (hebrewDay === 15) {
-                  // Tu (15th) - full moon
-                  return `ביום שנולדת הירח היה מלא!`
-                } else {
-                  // Default message
-                  return `ביום שנולדת לבנה הייתה מוארת ${illuminationText}`
+          {(() => {
+            // Position illumination label to the right of the moon
+            const moonriseD = timeToMinutes(record?.moon_times.moonrise ?? null)
+            const moonsetD = timeToMinutes(record?.moon_times.moonset ?? null)
+            
+            let moonPos = null
+            if (moonriseD != null && moonsetD != null) {
+              const moonWraps = moonsetD < moonriseD
+              
+              if (moonWraps) {
+                if (minutes >= moonriseD || minutes <= moonsetD) {
+                  const totalDuration = (1440 - moonriseD) + moonsetD
+                  let elapsed
+                  
+                  if (minutes >= moonriseD) {
+                    elapsed = minutes - moonriseD
+                  } else {
+                    elapsed = (1440 - moonriseD) + minutes
+                  }
+                  
+                  const progress = elapsed / totalDuration
+                  const continuousTime = progress * 1440
+                  moonPos = arcPosition(continuousTime, 0, 1440, skySize.width, skySize.height)
                 }
-              })()}
-            </div>
-          )}
+              } else {
+                moonPos = arcPosition(minutes, moonriseD, moonsetD, skySize.width, skySize.height)
+              }
+            }
+            
+            // Only show label if moon is visible
+            if (!moonPos) return null
+            
+            const rawIllum = (activeHebrewRecord?.moon.illumination ?? 0) * 100
+            const illum = Math.round(rawIllum)
+            const hebrewDay = activeHebrewRecord?.hebrew_day
+            
+            // Format illumination percentage with special handling for very low values
+            const illuminationText = illum < 1 ? 'בפחות מ1%' : `ב${illum}%`
+            
+            let text = ''
+            if (hebrewDay === 1) {
+              text = `נולדת בראש חודש! ביום זה לבנה מוארת ${illuminationText}`
+            } else if (hebrewDay === 15) {
+              text = `ביום שנולדת הירח היה מלא!`
+            } else {
+              text = `ביום שנולדת לבנה הייתה מוארת ${illuminationText}`
+            }
+            
+            // Calculate moon div size and positioning
+            const moonDivSize = Math.min(Math.max(64, skySize.width * 0.12), 84) // clamp(64px, 12vw, 84px)
+            const moonDivHalfSize = moonDivSize / 2
+            const padding = 8
+            const labelMaxWidth = Math.min(300, skySize.width - 20) // Max label width
+            
+            // Position label to the right of the moon DIV
+            const labelTop = moonPos.y - moonDivHalfSize // Align with top of moon div
+            
+            // X-axis: Position to the right of the moon div
+            const labelLeft = moonPos.x + moonDivHalfSize + padding // Right edge + padding
+            
+            // Ensure label doesn't go off right screen edge - if it does, position to the left
+            let adjustedLeft = labelLeft
+            if (labelLeft + labelMaxWidth > skySize.width - 10) {
+              // Position to the left of the moon instead
+              adjustedLeft = moonPos.x - moonDivHalfSize - padding - labelMaxWidth
+              // Ensure it doesn't go off the left edge either
+              adjustedLeft = Math.max(10, adjustedLeft)
+            }
+            
+            // Debug logging
+            console.log('Moon positioning debug:', {
+              moonPosX: moonPos.x,
+              labelMaxWidth,
+              labelLeft,
+              adjustedLeft,
+              skyWidth: skySize.width
+            })
+            
+            return (
+              <>
+                {/* Illumination Label */}
+                <div 
+                  className={`illum-label moon-positioned ${hintActive ? 'show' : ''}`}
+                  style={{
+                    '--moon-label-left': `${adjustedLeft}px`,
+                    '--moon-label-top': `${labelTop}px`,
+                    direction: 'ltr' // Force LTR to avoid RTL mirroring issues
+                  } as React.CSSProperties}
+                >
+                  {text}
+                </div>
+                
+                {/* Moon Highlight Circle - only when label is visible */}
+                {hintActive && (
+                  <div 
+                    className="moon-highlight-circle show"
+                    style={{
+                      left: `${moonPos.x - moonDivHalfSize - 4}px`, // Center on moon with extra padding
+                      top: `${moonPos.y - moonDivHalfSize - 4}px`,
+                      width: `${moonDivSize + 8}px`, // Moon size + padding
+                      height: `${moonDivSize + 8}px`,
+                      position: 'absolute',
+                      borderRadius: '50%',
+                      border: `3px solid ${sky.isDaylight ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'}`,
+                      pointerEvents: 'none',
+                      zIndex: 5, // Below the moon but above sky
+                      boxShadow: sky.isDaylight 
+                        ? '0 0 20px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.4), inset 0 0 8px rgba(0, 0, 0, 0.3)' 
+                        : '0 0 20px rgba(255, 255, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.3), inset 0 0 8px rgba(255, 255, 255, 0.2)'
+                    }}
+                  />
+                )}
+              </>
+            )
+          })()}
 
           {(()=>{ 
             // Sun path uses the selected date's sunrise/sunset
@@ -2029,8 +2124,9 @@ export default function App(){
                       setMinutes(georgianMinutes)
                       const pct = maxVal>0 ? (v/maxVal) : 0
                       setThumbLeftPct(Math.max(0, Math.min(1, pct))*100)
-                      // On user interaction: hide hand hint (but keep illumination label visible)
+                      // On user interaction: hide hand hint and fade out illumination label
                       if (showHints) setShowHints(false)
+                      if (hintActive) setHintActive(false)
                       setUserInteractedWithSlider(true)
                     }}/>
                   </div>

@@ -301,12 +301,61 @@ body {
   direction: rtl; 
   unicode-bidi: plaintext; 
   opacity: 0; 
-  transition: opacity 2000ms ease;
+  transition: opacity 1000ms ease;
   font-size: clamp(12px, 3vw, 16px);
   max-width: 90vw;
   text-align: center;
 }
 .illum-label.show { opacity: 1; }
+
+/* Moon-positioned illumination label - higher specificity to override base styles */
+.illum-label.moon-positioned {
+  /* Force override of base positioning */
+  left: var(--moon-label-left) !important;
+  top: var(--moon-label-top) !important;
+  bottom: auto !important;
+  transform: none !important;
+  position: absolute !important;
+  
+  /* Size and text handling */
+  max-width: 300px; /* Increased for longer Hebrew text */
+  width: max-content; /* Allow natural width expansion */
+  white-space: normal; /* Allow text wrapping if needed */
+  overflow: visible; /* Show all text */
+  text-overflow: clip; /* Don't clip text */
+  
+  /* Handle edge cases when label goes off-screen */
+  max-width: min(300px, calc(100vw - 20px)); /* Never exceed viewport width */
+  word-wrap: break-word; /* Break long words if necessary */
+  hyphens: auto; /* Enable hyphenation for better text flow */
+  
+  /* Override RTL behavior */
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+  text-align: right !important; /* Keep Hebrew text right-aligned within the label */
+}
+
+/* Moon highlight circle */
+.moon-highlight-circle {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+  animation: moon-pulse 2s ease-in-out infinite;
+}
+
+.moon-highlight-circle.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@keyframes moon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
 
 /* Overlays */
 .overlay-top { 
