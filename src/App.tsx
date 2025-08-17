@@ -1824,7 +1824,7 @@ export default function App(){
             let text = ''
             if (hebrewDay === 1) {
               text = `נולדת בראש חודש! ביום זה לבנה מוארת ${illuminationText}`
-            } else if (hebrewDay === 15) {
+            } else if (hebrewDay === 15 || illum === 100) {
               text = `ביום שנולדת הירח היה מלא!`
             } else {
               text = `ביום שנולדת לבנה הייתה מוארת ${illuminationText}`
@@ -1885,10 +1885,10 @@ export default function App(){
                       height: `${moonDivSize + 8}px`,
                       position: 'absolute',
                       borderRadius: '50%',
-                      border: `3px solid ${sky.isDaylight ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'}`,
+                      border: `3px solid ${mode === 'mode-day' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'}`,
                       pointerEvents: 'none',
                       zIndex: 5, // Below the moon but above sky
-                      boxShadow: sky.isDaylight 
+                      boxShadow: mode === 'mode-day' 
                         ? '0 0 20px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.4), inset 0 0 8px rgba(0, 0, 0, 0.3)' 
                         : '0 0 20px rgba(255, 255, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.3), inset 0 0 8px rgba(255, 255, 255, 0.2)'
                     }}
