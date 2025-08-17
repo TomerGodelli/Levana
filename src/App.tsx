@@ -1222,13 +1222,20 @@ export default function App(){
   useEffect(()=>{
     if (!submitted) return
     
-    // 24-hour circular scroll: moonrise-30 → full circle → moonrise+75
+    // 24-hour circular scroll: moonrise-30 → full circle → moonrise+75 OR midnight
     const moonriseTime = timeToMinutes(record?.moon_times.moonrise ?? null)
+    const moonsetTime = timeToMinutes(record?.moon_times.moonset ?? null)
+    const sunsetTime = timeToMinutes(record?.sun.sunset ?? null)
     if (!moonriseTime) return
     
     const startMinutes = moonriseTime - 30  // Start 30 minutes before moonrise
-    const endMinutes = moonriseTime + 75    // End 75 minutes after moonrise (next day)
-    const totalMinutes = 1440 + 105         // 24 hours + 105 minutes = 25.75 hours total
+    
+    // Determine end point: if moonrise > sunset, end at midnight; otherwise moonrise+75
+    const shouldEndAtMidnight = sunsetTime !== null && moonriseTime > sunsetTime
+    const endMinutes = shouldEndAtMidnight ? 1440 : (moonriseTime + 75)
+    const totalMinutes = shouldEndAtMidnight ? 
+      (1440 + (1440 - ((startMinutes % 1440 + 1440) % 1440))) : // Full cycle to midnight
+      (1440 + 105) // Normal 25.75 hours
     
     // Handle the circular nature - start position might be negative or > 1440
     const normalizedStart = ((startMinutes % 1440) + 1440) % 1440
