@@ -3,61 +3,12 @@ import type { DayRecord, YearData } from './types'
 
 const SLIDER_SLOWDOWN_FACTOR = 4
 
-// Auto-scroll speed parameters (easily configurable)
-const SUN_ONLY_SPEED = 0.67            // Speed multiplier when only sun is visible (1.5x slower)
-const MOON_PRESENT_SPEED = 0.47        // Speed multiplier when moon is visible (30% slower than sun)
-const NO_CELESTIALS_SPEED = 2.0        // Speed multiplier when no celestial bodies are visible (2x faster)
+// Auto-scroll speed parameters (reverted to single speed)
+const UNIFORM_SPEED = 1.0              // Single speed for all auto-scroll
 
-// Helper function to determine celestial body visibility and return appropriate speed
-// Extended by 30 minutes before and after for smoother auto-scroll transitions
-function getCelestialScrollSpeed(
-  minutes: number, 
-  sunrise: number | null, 
-  sunset: number | null,
-  moonrise: number | null,
-  moonset: number | null
-): number {
-  const TRANSITION_BUFFER = 30 // 30 minutes before and after
-  
-  let sunVisible = false
-  let moonVisible = false
-  
-  // Check if sun is visible (with 30-minute buffer)
-  if (sunrise != null && sunset != null) {
-    const extendedSunrise = sunrise - TRANSITION_BUFFER
-    const extendedSunset = sunset + TRANSITION_BUFFER
-    
-    if (sunrise <= sunset) {
-      // Normal day (sun doesn't cross midnight)
-      if (minutes >= extendedSunrise && minutes <= extendedSunset) sunVisible = true
-    } else {
-      // Sun crosses midnight (polar regions)
-      if (minutes >= extendedSunrise || minutes <= extendedSunset) sunVisible = true
-    }
-  }
-  
-  // Check if moon is visible (with 30-minute buffer)
-  if (moonrise != null && moonset != null) {
-    const extendedMoonrise = moonrise - TRANSITION_BUFFER
-    const extendedMoonset = moonset + TRANSITION_BUFFER
-    
-    if (moonrise <= moonset) {
-      // Moon doesn't cross midnight
-      if (minutes >= extendedMoonrise && minutes <= extendedMoonset) moonVisible = true
-    } else {
-      // Moon crosses midnight
-      if (minutes >= extendedMoonrise || minutes <= extendedMoonset) moonVisible = true
-    }
-  }
-  
-  // Return speed based on visibility priority: moon present > sun only > no celestials
-  if (moonVisible) {
-    return MOON_PRESENT_SPEED  // Slowest when moon is visible
-  } else if (sunVisible) {
-    return SUN_ONLY_SPEED     // Medium speed when only sun is visible
-  } else {
-    return NO_CELESTIALS_SPEED // Fastest when no celestial bodies are visible
-  }
+// Simplified function that returns uniform speed
+function getUniformScrollSpeed(): number {
+  return UNIFORM_SPEED
 }
 
 // DEBUG: simple grid for days 1–9
@@ -912,7 +863,7 @@ export default function App(){
   const [eastClickCount, setEastClickCount] = useState(0)
   const [showDebugMode, setShowDebugMode] = useState(false)
 
-  // Single source of truth for [A, B] based on yearData/date - always [D-1, D] now
+  // Simplified: Only keep A/B for Hebrew day labels (the exception)
   const abWindow = useMemo(()=>{
     if (!yearData || !record) return { A: null as DayRecord|null, B: null as DayRecord|null }
     const d = new Date(date)
@@ -920,11 +871,11 @@ export default function App(){
     const prevKey = formatYMDLocal(prev)
     const prevRec = yearData[prevKey] ?? null
     
-    // Always return [D-1, D] since slider now represents Georgian date 00:00-23:59
+    // Only used for Hebrew day labels now - all other logic uses record directly
     return { A: prevRec ?? record, B: record }
   }, [yearData, date, record])
 
-  const activeHebrewRecord = abWindow.B
+  const activeHebrewRecord = record  // Simplified: use record directly for active Hebrew display
   
   // Year data cache and preloading system
   const loadYearData = async (targetYear: number): Promise<YearData | null> => {
@@ -1162,7 +1113,7 @@ export default function App(){
         setMinutes(0)
       }
     }
-  }, [yearData, date, abWindow.A, abWindow.B])
+  }, [yearData, date, record, prevRecord])
 
   const slideRafRef = useRef<number | null>(null)
   const [showHints, setShowHints] = useState(false) // hand hint visibility (after auto-scroll ends)
@@ -1210,20 +1161,20 @@ export default function App(){
   const defaultAutoTargetMinutes = useMemo(()=>{
     // No-hour case: choose a target within B (D) closest to the midpoint
     // between moonrise and moonset of D, restricted to when the moon is visible.
-    const endRaw = timeToMinutes(abWindow.B?.sun.sunset ?? null)
-    const mrB = timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
-    const msB = timeToMinutes(abWindow.B?.moon_times.moonset ?? null)
+    const endRaw = timeToMinutes(record?.sun.sunset ?? null)
+    const mrD = timeToMinutes(record?.moon_times.moonrise ?? null)
+    const msD = timeToMinutes(record?.moon_times.moonset ?? null)
     if (endRaw==null) return null
     // Daytime of B (D) on the slider is [0..endRaw]
     const daySeg = [{ s: 0, e: endRaw }]
     // Build visible segments for D
     let visibleSegs: Array<{s:number,e:number}> = []
-    if (mrB!=null && msB!=null){
-      visibleSegs = toSegments(mrB, msB)
-    } else if (mrB!=null){
-      visibleSegs = [{ s: mrB, e: 1440 }]
-    } else if (msB!=null){
-      visibleSegs = [{ s: 0, e: msB }]
+    if (mrD!=null && msD!=null){
+      visibleSegs = toSegments(mrD, msD)
+    } else if (mrD!=null){
+      visibleSegs = [{ s: mrD, e: 1440 }]
+    } else if (msD!=null){
+      visibleSegs = [{ s: 0, e: msD }]
     }
     if (visibleSegs.length){
       // Intersect with B daytime
@@ -1231,13 +1182,13 @@ export default function App(){
       if (inter.length){
         // Compute midpoint of D's full visible window
         let midVisible: number
-        if (mrB!=null && msB!=null){
-          midVisible = midpointOfInterval(mrB, msB)
-        } else if (mrB!=null){
-          // Only moonrise known: approximate midpoint of [mrB..end of day]
-          midVisible = midpointOfInterval(mrB, 1440)
-        } else { // only msB
-          midVisible = midpointOfInterval(0, msB as number)
+        if (mrD!=null && msD!=null){
+          midVisible = midpointOfInterval(mrD, msD)
+        } else if (mrD!=null){
+          // Only moonrise known: approximate midpoint of [mrD..end of day]
+          midVisible = midpointOfInterval(mrD, 1440)
+        } else { // only msD
+          midVisible = midpointOfInterval(0, msD as number)
         }
         // Snap to the nearest point within the intersection segments
         let best = inter[0]
@@ -1258,7 +1209,7 @@ export default function App(){
     }
     // Fallback: midpoint of B daytime
     return Math.floor(endRaw / 2)
-  }, [abWindow.B])
+  }, [record])
 
   // Keep hand-hint position proportional to slider value
   useEffect(()=>{
@@ -1271,124 +1222,61 @@ export default function App(){
   useEffect(()=>{
     if (!submitted) return
     
-    // New auto-scroll logic: 
-    // 1. First cycle: 00:00 to 23:59 (complete Georgian day)
-    // 2. Second cycle: 00:00 to moon rise (if moon rises during the day)
+    // 24-hour circular scroll: moonrise-30 → full circle → moonrise+75
+    const moonriseTime = timeToMinutes(record?.moon_times.moonrise ?? null)
+    if (!moonriseTime) return
     
-    setSliderPos(0)
-    setMinutes(0)
+    const startMinutes = moonriseTime - 30  // Start 30 minutes before moonrise
+    const endMinutes = moonriseTime + 75    // End 75 minutes after moonrise (next day)
+    const totalMinutes = 1440 + 105         // 24 hours + 105 minutes = 25.75 hours total
+    
+    // Handle the circular nature - start position might be negative or > 1440
+    const normalizedStart = ((startMinutes % 1440) + 1440) % 1440
+    const startPos = normalizedStart * SLIDER_SLOWDOWN_FACTOR
+    
+    // Set initial position  
+    setSliderPos(startPos)
+    setMinutes(normalizedStart)
     setOverrideGregToB(false)
     
     const animStart = performance.now()
-    const baseDuration = 8000 // 8 seconds base duration
-    
-    // Calculate dynamic duration based on celestial visibility
-    const sunriseTime = timeToMinutes(record?.sun.sunrise ?? null)
-    const sunsetTime = timeToMinutes(record?.sun.sunset ?? null)  
-    const moonriseTime = timeToMinutes(record?.moon_times.moonrise ?? null)
-    const moonsetTime = timeToMinutes(record?.moon_times.moonset ?? null)
-    
-    // Calculate weighted duration by sampling visibility throughout the day
-    let totalWeight = 0
-    const samples = 144 // Sample every 10 minutes (1440/10)
-    for (let i = 0; i < samples; i++) {
-      const sampleMinutes = (i * 1440) / samples
-      const speedMultiplier = getCelestialScrollSpeed(sampleMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
-      totalWeight += speedMultiplier
-    }
-    const avgSpeedMultiplier = totalWeight / samples
-    const dynamicDuration = baseDuration / avgSpeedMultiplier
+    const duration = 10000 // 10 seconds for full 25-hour cycle
     
     // Start illumination label 2s after auto-scroll begins
     hintTimerRef.current && clearTimeout(hintTimerRef.current as unknown as number)
     hintTimerRef.current = window.setTimeout(()=> setHintActive(true), 2000)
     
-    let lastTime = animStart
-    let accumulatedProgress = 0
-    
-    const animateFirstCycle = (now: number) => {
-      const deltaTime = now - lastTime
-      lastTime = now
+    const animate = (now: number) => {
+      const elapsed = now - animStart
+      const progress = Math.min(1, elapsed / duration)
+      const eased = progress * progress * (3 - 2 * progress) // smoothstep
       
-      // Calculate current minutes for speed determination
-      const currentProgress = Math.min(1, accumulatedProgress)
-      const currentMinutes = currentProgress * 1440
-      const speedMultiplier = getCelestialScrollSpeed(currentMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
+      // Calculate current position in the 25-hour cycle
+      const currentMinutesInCycle = startMinutes + eased * totalMinutes
       
-      // Advance progress based on current speed
-      const progressDelta = (deltaTime * speedMultiplier) / baseDuration
-      accumulatedProgress += progressDelta
+      // Normalize to 0-1439 range for display (circular wrap)
+      const currentMinutes = ((currentMinutesInCycle % 1440) + 1440) % 1440
+      const currentPos = currentMinutes * SLIDER_SLOWDOWN_FACTOR
       
-      const t = Math.min(1, accumulatedProgress)
-      const eased = t*t*(3 - 2*t) // smoothstep
-      const pos = eased * maxSliderVal
-      setSliderPos(pos)
+      setSliderPos(currentPos)
+      setMinutes(Math.round(currentMinutes))
       
-      if (t < 1) {
-        slideRafRef.current = requestAnimationFrame(animateFirstCycle)
+      if (progress < 1) {
+        slideRafRef.current = requestAnimationFrame(animate)
       } else {
-        // First cycle complete, check if we need second cycle
-        const moonriseMinutes = timeToMinutes(record?.moon_times.moonrise ?? null)
-        if (moonriseMinutes != null && moonriseMinutes > 0 && moonriseMinutes < 1440) {
-          // Start second cycle: 00:00 to moonrise + 30 minutes with dynamic speed
-          const secondAnimStart = performance.now()
-          const targetMinutes = Math.min(1439, moonriseMinutes + 30) // Cap at 23:59
-          const moonrisePos = targetMinutes * SLIDER_SLOWDOWN_FACTOR
-          
-          let secondLastTime = secondAnimStart
-          let secondAccumulatedProgress = 0
-          
-          const animateSecondCycle = (now: number) => {
-            const deltaTime = now - secondLastTime
-            secondLastTime = now
-            
-            // Calculate current minutes for speed determination (0 to targetMinutes)
-            const currentProgress = Math.min(1, secondAccumulatedProgress)
-            const currentMinutes = currentProgress * targetMinutes
-            const speedMultiplier = getCelestialScrollSpeed(currentMinutes, sunriseTime, sunsetTime, moonriseTime, moonsetTime)
-            
-            // Advance progress based on current speed (proportional to target fraction)
-            const progressDelta = (deltaTime * speedMultiplier) / (baseDuration * (targetMinutes / 1440))
-            secondAccumulatedProgress += progressDelta
-            
-            const t = Math.min(1, secondAccumulatedProgress)
-            const eased = t*t*(3 - 2*t) // smoothstep
-            const pos = eased * moonrisePos
-            setSliderPos(pos)
-            
-            if (t < 1) {
-              slideRafRef.current = requestAnimationFrame(animateSecondCycle)
-            } else {
-              // Animation complete
-              slideRafRef.current = null
-              setShowHints(false)
-              iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
-              iconTimerRef.current = window.setTimeout(()=> {
-                setShowHints(true)
-              }, 500)
-              setOverrideGregToB(false)
-            }
-          }
-          
-          // Reset to start and begin second cycle
-          setSliderPos(0)
-          setMinutes(0)
-          slideRafRef.current = requestAnimationFrame(animateSecondCycle)
-        } else {
-          // No moonrise during day, just end here
-          slideRafRef.current = null
-          setShowHints(false)
-          iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
-          iconTimerRef.current = window.setTimeout(()=> {
-            setShowHints(true)
-          }, 500)
-          setOverrideGregToB(false)
-        }
+        // Animation complete - should end at moonrise + 30
+        slideRafRef.current = null
+        setShowHints(false)
+        iconTimerRef.current && clearTimeout(iconTimerRef.current as unknown as number)
+        iconTimerRef.current = window.setTimeout(()=> {
+          setShowHints(true)
+        }, 500)
+        setOverrideGregToB(false)
       }
     }
     
     slideRafRef.current && cancelAnimationFrame(slideRafRef.current)
-    slideRafRef.current = requestAnimationFrame(animateFirstCycle)
+    slideRafRef.current = requestAnimationFrame(animate)
     
     // Ensure we're at the top of the viewport for landscape mode
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1410,18 +1298,18 @@ export default function App(){
   const mode = skyMode(minutes, sunrise, sunset)
   const sky = useMemo(()=>{
     // Compute dynamic center on the same arc as the sun, based on current minutes
-    // Use B-day sun times to match actual sun position
-    const sunriseB = timeToMinutes(abWindow.B?.sun.sunrise ?? null)
-    const sunsetB = timeToMinutes(abWindow.B?.sun.sunset ?? null)
+    // Use selected date sun times to match actual sun position
+    const sunriseD = timeToMinutes(record?.sun.sunrise ?? null)
+    const sunsetD = timeToMinutes(record?.sun.sunset ?? null)
     
     const dynamicCenter = (()=>{
-      if (sunriseB==null || sunsetB==null) return { position: null, opacity: 0 }
+      if (sunriseD==null || sunsetD==null) return { position: null, opacity: 0 }
       
       // Check if we're in background transition periods (when glow should be active)
-      const dawnStart = sunriseB - 60
-      const dawnEnd = sunriseB + 30  
-      const duskStart = sunsetB - 45
-      const duskEnd = sunsetB + 30
+      const dawnStart = sunriseD - 60
+      const dawnEnd = sunriseD + 30  
+      const duskStart = sunsetD - 45
+      const duskEnd = sunsetD + 30
       
       const inDawnTransition = minutes >= dawnStart && minutes <= dawnEnd
       const inDuskTransition = minutes >= duskStart && minutes <= duskEnd
@@ -1460,7 +1348,7 @@ export default function App(){
       
       // Always calculate position during transition periods, even if opacity is 0
       // Use the same arcPosition function as the actual sun
-      const pos = arcPosition(minutes, sunriseB, sunsetB, skySize.width, skySize.height)
+      const pos = arcPosition(minutes, sunriseD, sunsetD, skySize.width, skySize.height)
       
       if (pos) {
         // Normal case: sun is visible, use actual position
@@ -1471,7 +1359,7 @@ export default function App(){
         // Sun is not visible but we're in transition - use transition-specific position
         if (inDawnTransition) {
           // During dawn transition but before sunrise: use sunrise position
-          const startPos = arcPosition(sunriseB, sunriseB, sunsetB, skySize.width, skySize.height)
+          const startPos = arcPosition(sunriseD, sunriseD, sunsetD, skySize.width, skySize.height)
           if (startPos) {
             const xPct = (startPos.x / skySize.width) * 100
             const yPct = (startPos.y / skySize.height) * 100
@@ -1480,7 +1368,7 @@ export default function App(){
           return { position: "5.0% 85.0%", opacity }
         } else if (inDuskTransition) {
           // During dusk transition but after sunset: use sunset position
-          const endPos = arcPosition(sunsetB, sunriseB, sunsetB, skySize.width, skySize.height)
+          const endPos = arcPosition(sunsetD, sunriseD, sunsetD, skySize.width, skySize.height)
           if (endPos) {
             const xPct = (endPos.x / skySize.width) * 100
             const yPct = (endPos.y / skySize.height) * 100
@@ -1495,7 +1383,7 @@ export default function App(){
       background: skyColor(minutes, sunrise, sunset, { dawnCenter: dynamicCenter.position, duskCenter: dynamicCenter.position }),
       glowCenter: dynamicCenter 
     }
-  }, [minutes, sunrise, sunset, abWindow.B, skySize])
+  }, [minutes, sunrise, sunset, record, skySize])
   // 30-minute visual lag for sea and mountains relative to sky transitions
   const minutesLag = minutes - 30
   const seaStyle = useMemo(()=>({ background: seaGradient(minutesLag, sunrise, sunset) }), [minutes, sunrise, sunset])
@@ -1909,21 +1797,47 @@ export default function App(){
           )}
 
           {(()=>{ 
-            // Sun path uses sunrise of B-day (end day) per spec
-            const sunriseB = timeToMinutes(abWindow.B?.sun.sunrise ?? null)
-            const sunsetB = timeToMinutes(abWindow.B?.sun.sunset ?? null)
-            const pos = arcPosition(minutes, sunriseB, sunsetB, skySize.width, skySize.height); 
+            // Sun path uses the selected date's sunrise/sunset
+            const sunriseD = timeToMinutes(record?.sun.sunrise ?? null)
+            const sunsetD = timeToMinutes(record?.sun.sunset ?? null)
+            const pos = arcPosition(minutes, sunriseD, sunsetD, skySize.width, skySize.height); 
             return pos && <div className="sun" style={{left:pos.x, top:pos.y}}/> 
           })()}
 
           {(() => {
-            // Moon path across the Hebrew window: prefer A's rise, and B's set if A's set is missing (wrap across midnight)
-            const moonriseA = timeToMinutes(abWindow.A?.moon_times.moonrise ?? null)
-            const moonsetA = timeToMinutes(abWindow.A?.moon_times.moonset ?? null)
-            const moonsetB = timeToMinutes(abWindow.B?.moon_times.moonset ?? null)
-            const effectiveRise = moonriseA ?? timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
-            const effectiveSet = (moonsetA != null ? moonsetA : moonsetB)
-            const pos = arcPosition(minutes, effectiveRise, effectiveSet, skySize.width, skySize.height)
+            // Moon path uses the selected date's moonrise/moonset with proper midnight crossing handling
+            const moonriseD = timeToMinutes(record?.moon_times.moonrise ?? null)
+            const moonsetD = timeToMinutes(record?.moon_times.moonset ?? null)
+            
+            let pos = null
+            if (moonriseD != null && moonsetD != null) {
+              const moonWraps = moonsetD < moonriseD // Moon crosses midnight
+              
+              if (moonWraps) {
+                // Moon crosses midnight - check which part of the cycle we're in
+                if (minutes >= moonriseD || minutes <= moonsetD) {
+                  // Moon is visible - calculate position on continuous arc
+                  const totalDuration = (1440 - moonriseD) + moonsetD
+                  let elapsed
+                  
+                  if (minutes >= moonriseD) {
+                    // From moonrise to midnight
+                    elapsed = minutes - moonriseD
+                  } else {
+                    // From midnight to moonset (continuing the arc)
+                    elapsed = (1440 - moonriseD) + minutes
+                  }
+                  
+                  // Map to a continuous arc (using a full 24-hour reference for smooth circular motion)
+                  const progress = elapsed / totalDuration
+                  const continuousTime = progress * 1440 // Map to full day cycle
+                  pos = arcPosition(continuousTime, 0, 1440, skySize.width, skySize.height)
+                }
+              } else {
+                // Normal case - moon doesn't cross midnight
+                pos = arcPosition(minutes, moonriseD, moonsetD, skySize.width, skySize.height)
+              }
+            }
             // Night-glow fade around night mode: fade in 30 min BEFORE night starts, fade out 30 min AFTER night ends
             let nightGlowWeight = 0
             if (sunrise!=null && sunset!=null){
@@ -1989,15 +1903,14 @@ export default function App(){
             <>
               {/* Sun Arc Indicator */}
               {(() => {
-                const sunriseB = timeToMinutes(abWindow.B?.sun.sunrise ?? null)
-                const sunsetB = timeToMinutes(abWindow.B?.sun.sunset ?? null)
-                if (!sunriseB || !sunsetB) return null
-                
-                // Calculate arc path for sun
+                // Static sun arc - always the same path regardless of rise/set times
                 const points = []
                 const step = 5 // Sample every 5 minutes
-                for (let m = sunriseB; m <= sunsetB; m += step) {
-                  const pos = arcPosition(m, sunriseB, sunsetB, skySize.width, skySize.height)
+                const staticSunrise = 6 * 60  // 06:00 - fixed reference sunrise
+                const staticSunset = 18 * 60  // 18:00 - fixed reference sunset
+                
+                for (let m = staticSunrise; m <= staticSunset; m += step) {
+                  const pos = arcPosition(m, staticSunrise, staticSunset, skySize.width, skySize.height)
                   if (pos) points.push(`${pos.x},${pos.y}`)
                 }
                 
@@ -2029,35 +1942,15 @@ export default function App(){
 
               {/* Moon Arc Indicator */}
               {(() => {
-                const moonriseA = timeToMinutes(abWindow.A?.moon_times.moonrise ?? null)
-                const moonsetA = timeToMinutes(abWindow.A?.moon_times.moonset ?? null)
-                const moonsetB = timeToMinutes(abWindow.B?.moon_times.moonset ?? null)
-                const effectiveRise = moonriseA ?? timeToMinutes(abWindow.B?.moon_times.moonrise ?? null)
-                const effectiveSet = (moonsetA != null ? moonsetA : moonsetB)
-                
-                if (!effectiveRise || !effectiveSet) return null
-                
-                // Calculate arc path for moon (handle midnight crossing)
+                // Static moon arc - identical to sun arc, completely independent of moon times
                 const points = []
                 const step = 10 // Sample every 10 minutes
-                const wraps = effectiveSet < effectiveRise
+                const staticSunrise = 6 * 60  // 06:00 - same reference as sun arc
+                const staticSunset = 18 * 60  // 18:00 - same reference as sun arc
                 
-                if (wraps) {
-                  // Moon crosses midnight
-                  for (let m = effectiveRise; m < 1440; m += step) {
-                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
-                    if (pos) points.push(`${pos.x},${pos.y}`)
-                  }
-                  for (let m = 0; m <= effectiveSet; m += step) {
-                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
-                    if (pos) points.push(`${pos.x},${pos.y}`)
-                  }
-                } else {
-                  // Normal case
-                  for (let m = effectiveRise; m <= effectiveSet; m += step) {
-                    const pos = arcPosition(m, effectiveRise, effectiveSet, skySize.width, skySize.height)
-                    if (pos) points.push(`${pos.x},${pos.y}`)
-                  }
+                for (let m = staticSunrise; m <= staticSunset; m += step) {
+                  const pos = arcPosition(m, staticSunrise, staticSunset, skySize.width, skySize.height)
+                  if (pos) points.push(`${pos.x},${pos.y}`)
                 }
                 
                 if (points.length < 2) return null
